@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Branch Compliance Audit</title>
+    <style>
+        body { font-family: sans-serif; margin: 15px; background: #f4f4f4; }
+        .page { display: none; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .active { display: block; }
+        .q-box { border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 5px; }
+        .error-highlight { border: 2px solid red !important; background: #fff5f5; }
+        .btn-container { display: flex; justify-content: space-between; margin-top: 20px; }
+        button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 4px; background: #007bff; color: #white; }
+        button:disabled { background: #ccc; }
+        input, select { width: 100%; margin: 5px 0; padding: 8px; box-sizing: border-box; }
+        .photo-preview { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
+        .img-wrap { position: relative; }
+        .img-wrap img { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; }
+        .remove-btn { position: absolute; top: 0; right: 0; background: red; color: white; border-radius: 50%; cursor: pointer; padding: 2px 5px; font-size: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="form-container">
+        <div id="page1" class="page active">
+            <div id="basic-details">
+                <select id="state" onchange="initBranch()"></select>
+                <select id="branch" onchange="renderQuestions()"></select>
+                <input type="text" id="branchHead" placeholder="Branch Head Name">
+                <input type="text" id="officeBoy" placeholder="Office Boy Name">
+            </div>
+            <div id="q-container-1"></div>
+        </div>
+        <div id="page2" class="page"><div id="q-container-2"></div></div>
+        <div id="page3" class="page"><div id="q-container-3"></div></div>
+        <div id="page4" class="page"><div id="q-container-4"></div></div>
+        <div id="page5" class="page"><div id="q-container-5"></div></div>
+        <div id="page6" class="page"><div id="q-container-6"></div></div>
+
+        <div class="btn-container">
+            <button id="btnBack" onclick="changePage(-1)" style="display:none;"></button>
+            <button id="btnNext" onclick="handleNext()"></button>
+        </div>
+    </div>
+
+    <script>
+        // Data Placeholders (Paste your data here)
+        const msgLabels = {
+hi: {
+     y: "हाँ / Yes", n: "नहीं / No",
+     next: "save और आगे बढ़ें / Save & Next",
+    back: "पीछे जाएं / Back",
+     photo: "फोटो अपलोड करें। / UPLOAD PHOTO!",
+     date: "Date ठीक करें / WRONG DATE!",
+     version: "कृपया Version No भरें / Please enter Version No!",
+     firstAidTip: "सारी दवाइयाँ एक साथ रखें ताकि सभी expiry dates दिखें, फिर फोटो क्लिक करें। / Arrange all the medicines next to each other so expiry date of all medicines is visible and then click the photo.",
+     selectCount: "कृपया Fire Extinguisher की संख्या चुनें (max 15). / Please select number of Fire Extinguishers (max 15).",
+     pending: "कृपया सारी जानकारी भरें (लाल रंग में हाईलाइट किया गया)। / fill all details (highlighted in red).",
+     success: "Report सबमिट हो गया है! / Report Submitted successfully.",
+     wait: "कृपया प्रतीक्षा करें, डेटा भेजा जा रहा है…",
+   },
+   te: {
+     y: "అవును / Yes", n: "కాదు / No",
+    next: "సేవ్ చేసి కొనసాగండి / Save & Next",
+    back: "మునుపటి పేజీకి వెళ్ళండి / Back",
+     photo: "ఫోటోను అప్‌లోడ్ చేయండి / UPLOAD PHOTO!",
+     date: "తేదీని నిర్ణయించండి / INVALID DATE!",
+     firstAidTip: "అన్ని మందులను కలిపి ఉంచండి, తద్వారా అన్ని మందుల expiry date స్పష్టంగా కనిపిస్తుంది, తరువాత photo తీసుకోండి./ Arrange all the medicines next to each other so expiry date of all medicines is visible and then click the photo.",
+     selectCount: "कृपया Fire Extinguisher की संख्या चुनें (max 15). / Please select number of Fire Extinguishers (max 15).",
+     version: "దయచేసి version no ని నమోదు చేయండి / Please enter Version No!",
+     pending: "దయచేసి అన్ని వివరాలను పూరించండి (ఎరుపు రంగులో హైలైట్ చేయబడింది). / Please fill all details (highlighted in red).",
+     success: "నివేదిక విజయవంతంగా సమర్పించబడింది. / Report Submitted successfully.",
+     wait: "దయచేసి వేచి ఉండండి, డేటా పంపబడుతోంది…",
+   },
+   ta: {
+     y: "ஆம் / Yes", n: "இல்லை / No",
+       next: "சேமித்து தொடரவும் / Save & Next",
+    back: "முந்தைய பக்கத்திற்கு செல்லவும் / Back",
+     photo: "புகைப்படத்தை பதிவேற்றவும் / UPLOAD PHOTO!",
+     date: "தேதியை நிர்ணயிக்கவும் / INVALID DATE!",
+     version: "version no ஐ உள்ளிடவும். / Please enter Version No!",
+     firstAidTip: "அனைத்து மருந்துகளின் expiry date தெளிவாகத் தெரியும்படி அனைத்து மருந்துகளையும் ஒன்றாக வைக்கவும், பின்னர் photo எடுத்துக்கொள்ளவும்./ Arrange all the medicines next to each other so expiry date of all medicines is visible and then click the photo.",
+     selectCount: "कृपया Fire Extinguisher की संख्या चुनें (max 15). / Please select number of Fire Extinguishers (max 15).",
+     pending: "தயவுசெய்து அனைத்து விவரங்களையும் நிரப்பவும் (சிவப்பு நிறத்தில் சிறப்பிக்கப்பட்டுள்ளது). / Please fill all details (highlighted in red).",
+     success: "அறிக்கை வெற்றிகரமாக சமர்ப்பிக்கப்பட்டது./ Report Submitted successfully.",
+     wait: "தயவுசெய்து காத்திருக்கவும், தரவு அனுப்பப்படுகிறது…",
+   },
+   kn: {
+     y: "ಹೌದು / Yes", n: "ಇಲ್ಲ / No",
+       next: "ಉಳಿಸಿ ಮತ್ತು ಮುಂದುವರೆಯಿರಿ / Save & Next",
+    back: "ಹಿಂದಿನ ಪುಟಕ್ಕೆ ಹೋಗಿ / Back",
+     photo: "ಫೋಟೋ ಅಪ್ಲೋಡ್ / UPLOAD PHOTO!",
+     date: "ದಿನಾಂಕವನ್ನು ನಿಗದಿಪಡಿಸಿ / INVALID DATE!",
+     version: "ದಯವಿಟ್ಟು version no ನಮೂದಿಸಿ / Please enter Version No!",
+     firstAidTip: "ಎಲ್ಲಾ ಔಷಧಿಗಳ expiry date ಸ್ಪಷ್ಟವಾಗಿ ಗೋಚರಿಸುವಂತೆ ಎಲ್ಲಾ ಔಷಧಿಗಳನ್ನು ಒಟ್ಟಿಗೆ ಇರಿಸಿ, ನಂತರ photo ತೆಗೆದುಕೊಳ್ಳಿ/ Arrange all the medicines next to each other so expiry date of all medicines is visible and then click the photo.",
+     selectCount: "कृपया Fire Extinguisher की संख्या चुनें (max 15). / Please select number of Fire Extinguishers (max 15).",
+     pending: "ದಯವಿಟ್ಟು ಎಲ್ಲಾ ವಿವರಗಳನ್ನು ಭರ್ತಿ ಮಾಡಿ (ಕೆಂಪು ಬಣ್ಣದಲ್ಲಿ ಹೈಲೈಟ್ ಮಾಡಲಾಗಿದೆ). / Please fill all details (highlighted in red).",
+     success: "ವರದಿಯನ್ನು ಯಶಸ್ವಿಯಾಗಿ ಸಲ್ಲಿಸಲಾಗಿದೆ. / Report Submitted successfully.",
+     wait: "ದಯವಿಟ್ಟು ಕಾಯಿರಿ, ಡೇಟಾ ಕಳುಹಿಸಲಾಗುತ್ತಿದೆ…",
+   }
+ };
+        const branchAssetList = { 
+"Madurai": [
+    { code: "MAD/OE/07/18-19/203", desc: "GODREJ ELECTRONIC SAFE" },
+    { code: "MAD/OE/07/18-19/228", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "MAD/OE/07/18-19/229", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "MAD/OE/07/18-19/262", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "MAD/OE/11/19-20/035", desc: "APC SRC3KUXI 3KVA UPS" },
+    { code: "MAD/OE/11/19-20/036", desc: "APC SRC3KUXI 3KVA UPS" },
+    { code: "MAD/OE/12/19-20/040", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "MAD/OE/12/19-20/041", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "MAD/OE/12/19-20/042", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "MAD/OE/12/19-20/043", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "MAD/OE/12/19-20/044", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "MAD/OE/12/19-20/045", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "MAD/OE/12/19-20/046", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "MAD/OE/12/19-20/047", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "MAD/OE/12/19-20/048", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "MAD/OE/03/20-21/049", desc: "BIOMETRIC" }
+  ],
+  "Puducherry": [
+    { code: "PUD/OE/03/23-24/001", desc: "DVR" },
+    { code: "PUD/OE/03/23-24/002", desc: "CCTV Camera" },
+    { code: "PUD/OE/03/23-24/003", desc: "CCTV Camera" },
+    { code: "PUD/OE/03/23-24/004", desc: "CCTV Camera" },
+    { code: "PUD/OE/03/23-24/005", desc: "Biometric" },
+    { code: "PUD/OE/03/23-24/006", desc: "UPS 3KVA" },
+    { code: "PUD/OE/03/23-24/007", desc: "Battery" },
+    { code: "PUD/OE/03/23-24/008", desc: "Battery" },
+    { code: "PUD/OE/03/23-24/009", desc: "Battery" },
+    { code: "PUD/OE/03/23-24/010", desc: "Battery" },
+    { code: "PUD/OE/03/23-24/011", desc: "Battery" },
+    { code: "PUD/OE/03/23-24/012", desc: "Battery" },
+    { code: "PUD/OE/03/23-24/013", desc: "Godrej Electronic Safe" },
+    { code: "PUD/OE/03/23-24/014", desc: "Fire Extinguisher" },
+    { code: "PUD/OE/03/23-24/015", desc: "Fire Extinguisher" }
+  ],
+  "Jaipur": [
+    { code: "JAI/OE/03/18-19/049", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "JAI/OE/05/18-19/133", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "JAI/OE/05/18-19/137", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "JAI/OE/07/18-19/212", desc: "GODREJ ELECTRONIC SAFE" },
+    { code: "JAI/OE/12/19-20/053", desc: "Shredder Machine" },
+    { code: "JAI/OE/01/21-22/054", desc: "EXIDE SMF BATTERY 12V/42AH" },
+    { code: "JAI/OE/01/21-22/055", desc: "EXIDE SMF BATTERY 12V/42AH" },
+    { code: "JAI/OE/01/21-22/056", desc: "EXIDE SMF BATTERY 12V/42AH" },
+    { code: "JAI/OE/01/21-22/057", desc: "EXIDE SMF BATTERY 12V/42AH" },
+    { code: "JAI/OE/01/21-22/058", desc: "EXIDE SMF BATTERY 12V/42AH" },
+    { code: "JAI/OE/01/21-22/059", desc: "EXIDE SMF BATTERY 12V/42AH" },
+    { code: "JAI/OE/01/21-22/060", desc: "EXIDE SMF BATTERY 12V/42AH" },
+    { code: "JAI/OE/01/21-22/061", desc: "EXIDE SMF BATTERY 12V/42AH" },
+    { code: "JAI/OE/01/21-22/062", desc: "EXIDE SMF BATTERY 12V/42AH" },
+    { code: "JAI/OE/01/21-22/063", desc: "EXIDE SMF BATTERY 12V/42AH" },
+    { code: "JAI/OE/01/21-22/064", desc: "EXIDE SMF BATTERY 12V/42AH" },
+    { code: "JAI/OE/01/21-22/065", desc: "EXIDE SMF BATTERY 12V/42AH" },
+    { code: "JAI/OE/01/21-22/066", desc: "EXIDE SMF BATTERY 12V/42AH" },
+    { code: "JAI/OE/01/21-22/067", desc: "EXIDE SMF BATTERY 12V/42AH" },
+    { code: "JAI/OE/01/21-22/068", desc: "EXIDE SMF BATTERY 12V/42AH" }
+  ],
+  "Tirupati": [
+    { code: "TIR/OE/12/22-23/001", desc: "WATER DISPANCER" },
+    { code: "TIR/OE/12/22-23/002", desc: "BIOMETRIC" },
+    { code: "TIR/OE/12/22-23/003", desc: "GODREJ ELECTRONIC SAFE" },
+    { code: "TIR/OE/12/22-23/004", desc: "DVR 4CH" },
+    { code: "TIR/OE/12/22-23/005", desc: "CCTV CAMERA" },
+    { code: "TIR/OE/12/22-23/006", desc: "CCTV CAMERA" },
+    { code: "TIR/OE/12/22-23/007", desc: "CCTV CAMERA" },
+    { code: "TIR/OE/12/22-23/008", desc: "UPS 3KVA" },
+    { code: "TIR/OE/12/22-23/009", desc: "SMF BATTERY 42AH" },
+    { code: "TIR/OE/12/22-23/010", desc: "SMF BATTERY 42AH" },
+    { code: "TIR/OE/12/22-23/011", desc: "SMF BATTERY 42AH" },
+    { code: "TIR/OE/12/22-23/012", desc: "SMF BATTERY 42AH" },
+    { code: "TIR/OE/12/22-23/013", desc: "SMF BATTERY 42AH" },
+    { code: "TIR/OE/12/22-23/014", desc: "SMF BATTERY 42AH" }
+  ],
+  
+  "Chennai":[
+    { code: "CHE/OE/06/15-16/004", desc: "LED TV" },
+    { code: "CHE/OE/06/15-16/005", desc: "REFRIGERATOR" },
+    { code: "CHE/OE/05/18-19/143", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "CHE/OE/05/18-19/144", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "CHE/OE/05/18-19/145", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "CHE/OE/05/18-19/146", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "CHE/OE/05/18-19/147", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "CHE/OE/05/18-19/148", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "CHE/OE/05/18-19/149", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "CHE/OE/05/18-19/150", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "CHE/OE/05/18-19/151", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "CHE/OE/05/18-19/152", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "CHE/OE/05/18-19/153", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "CHE/OE/05/18-19/154", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "CHE/OE/05/18-19/164", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "CHE/OE/05/18-19/165", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "CHE/OE/05/18-19/166", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "CHE/OE/05/18-19/167", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "CHE/OE/06/18-19/178", desc: "APC 1 KVA UPS" },
+    { code: "CHE/OE/06/18-19/180", desc: "APC 1 KVA UPS" },
+    { code: "CHE/OE/06/18-19/181", desc: "APC 1 KVA UPS" },
+    { code: "CHE/OE/07/18-19/204", desc: "GODREJ ELECTRONIC SAFE" },
+    { code: "CHE/OE/07/18-19/213", desc: "GODREJ ELECTRONIC SAFE" },
+    { code: "CHE/OE/08/18-19/274", desc: "DOME CAMERA, POWER SUPPLY" },
+    { code: "CHE/OE/10/18-19/335", desc: "APC UPS" },
+    { code: "CHE/OE/11/19-20/017", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHE/OE/11/19-20/018", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHE/OE/11/19-20/019", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHE/OE/11/19-20/020", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHE/OE/11/19-20/021", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHE/OE/11/19-20/022", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHE/OE/11/19-20/023", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHE/OE/11/19-20/024", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHE/OE/11/19-20/025", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHE/OE/11/19-20/026", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHE/OE/11/19-20/027", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHE/OE/11/19-20/028", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHE/OE/11/19-20/029", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHE/OE/11/19-20/030", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHE/OE/11/19-20/031", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHE/OE/11/19-20/032", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHE/OE/11/19-20/033", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHE/OE/11/19-20/034", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHE/OE/12/19-20/049", desc: "Shredder Machine" },
+    { code: "CHE/OE/12/19-20/050", desc: "Biometric machine" },
+    { code: "CHE/OE/12/19-20/051", desc: "Fire extinguisher" },
+    { code: "CHE/OE/12/19-20/052", desc: "Fire extinguisher" },
+    { code: "CHE/OE/01/20-21/053", desc: "Biometric machine" },
+    { code: "CHE/OE/03/20-21/054", desc: "Blue Star Water Dispenser" },
+    { code: "CHE/OE/03/20-21/055", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "CHE/OE/03/20-21/056", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "CHE/OE/03/20-21/057", desc: "CCTV CAMERA & ACCESSORIES" }
+  ],
+  "Ahmedabad": [
+    { code: "AHM/OE/03/18-19/050", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "AHM/OE/05/18-19/132", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "AHM/OE/05/18-19/142", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "AHM/OE/07/18-19/200", desc: "GODREJ ELECTRONIC SAFE" },
+    { code: "AHM/OE/07/18-19/205", desc: "GODREJ ELECTRONIC SAFE" },
+    { code: "AHM/OE/03/21-22/044", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/045", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/046", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/047", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/048", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/049", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/050", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/051", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/052", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/053", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/054", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/055", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/056", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/057", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/058", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/059", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/060", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/061", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/062", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/063", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/064", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/065", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/066", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/067", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/068", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/069", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/070", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/071", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "AHM/OE/03/21-22/072", desc: "EXIDE 12V-42AH SMF BATTERY" }
+  ],
+  "Visakhapatnam": [
+    { code: "VIS/OE/07/18-19/223", desc: "GODREJ ELECTRONIC SAFE" },
+    { code: "VIS/OE/07/18-19/235", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "VIS/OE/07/18-19/247", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "VIS/OE/08/18-19/277", desc: "DOME CAMERA, POWER SUPPLY" },
+    { code: "VIS/OE/09/18-19/293", desc: "APC UPS" },
+    { code: "VIS/OE/01/21-22/058", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/059", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/060", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/061", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/062", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/063", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/064", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/065", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/066", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/067", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/068", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/069", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/070", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/071", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/072", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/073", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/074", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/075", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/076", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/077", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/078", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/079", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/080", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/081", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/082", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/083", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/084", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/085", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/086", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/087", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/088", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/089", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/090", desc: "EXIDE 12V-42AH SMF BATTERY" },
+    { code: "VIS/OE/01/21-22/091", desc: "EXIDE 12V-42AH SMF BATTERY" }
+  ],
+  "Surat": [
+    { code: "KOL/OE/03/18-19/035", desc: "EXIDE BATTERY" },
+    { code: "KOL/OE/03/18-19/036", desc: "EXIDE BATTERY" },
+    { code: "KOL/OE/03/18-19/037", desc: "EXIDE BATTERY" },
+    { code: "KOL/OE/03/18-19/038", desc: "EXIDE BATTERY" },
+    { code: "KOL/OE/03/18-19/039", desc: "EXIDE BATTERY" },
+    { code: "KOL/OE/03/18-19/040", desc: "EXIDE BATTERY" },
+    { code: "KOL/OE/03/18-19/041", desc: "EXIDE BATTERY" },
+    { code: "KOL/OE/03/18-19/042", desc: "EXIDE BATTERY" },
+    { code: "SUR/OE/12/21-22/001", desc: "CCTV Camera" },
+    { code: "SUR/OE/12/21-22/002", desc: "CCTV Camera" },
+    { code: "SUR/OE/12/21-22/003", desc: "CCTV Camera" },
+    { code: "SUR/OE/12/21-22/004", desc: "CCTV Camera" },
+    { code: "SUR/OE/12/21-22/005", desc: "UPS 3KVA" },
+    { code: "SUR/OE/12/21-22/006", desc: "Biometric machine" },
+    { code: "SUR/OE/12/21-22/007", desc: "Godrej Electronic safe" },
+    { code: "SUR/OE/12/21-22/008", desc: "Water Dispenser" },
+    { code: "SUR/OE/12/21-22/009", desc: "Fire Extinguisher" },
+    { code: "SUR/OE/12/21-22/010", desc: "Fire Extinguisher" }
+  ],
+  "Chandigarh": [
+    { code: "CHA/OE/04/18-19/080", desc: "SMF BATTRY Rack" },
+    { code: "CHA/OE/04/18-19/125", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "CHA/OE/05/18-19/136", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "CHA/OE/06/18-19/189", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "CHA/OE/07/18-19/211", desc: "GODREJ ELECTRONIC SAFE" },
+    { code: "CHA/OE/11/19-20/037", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHA/OE/11/19-20/038", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHA/OE/11/19-20/039", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHA/OE/11/19-20/040", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHA/OE/11/19-20/041", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHA/OE/11/19-20/042", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHA/OE/11/19-20/043", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHA/OE/11/19-20/044", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHA/OE/11/19-20/045", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHA/OE/11/19-20/046", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHA/OE/11/19-20/047", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHA/OE/11/19-20/048", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "CHA/OE/12/19-20/042", desc: "APC 1KVA UPS" },
+    { code: "CHA/OE/03/20-21/043", desc: "APC 1KVA UPS" }
+  ],
+
+  "Coimbatore": [
+    { code: "COI/OE/07/18-19/201", desc: "GODREJ ELECTRONIC SAFE" },
+    { code: "COI/OE/07/18-19/249", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "COI/OE/11/18-19/314", desc: "APC UPS" },
+    { code: "COI/OE/11/18-19/321", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "COI/OE/11/18-19/322", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "COI/OE/11/18-19/330", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "COI/OE/11/19-20/030", desc: "APC SRC3KUXI 3KVA UPS" },
+    { code: "COI/OE/11/19-20/031", desc: "APC SRC3KUXI 3KVA UPS" },
+    { code: "COI/OE/11/19-20/032", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "COI/OE/11/19-20/033", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "COI/OE/11/19-20/034", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "COI/OE/11/19-20/035", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "COI/OE/11/19-20/036", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "COI/OE/11/19-20/037", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "COI/OE/12/19-20/038", desc: "Shredder Machine" },
+    { code: "COI/OE/12/19-20/039", desc: "Biometric machine" }
+  ],
+  "Hyderabad": [
+    { code: "HYD/OE/07/15-16/006", desc: "SONY RECORDER" },
+    { code: "HYD/OE/07/15-16/007", desc: "MICRO WAVE" },
+    { code: "HYD/OE/07/15-16/008", desc: "DISPENSER" },
+    { code: "HYD/OE/07/15-16/009", desc: "LED TV" },
+    { code: "HYD/OE/04/18-19/123", desc: "APC UPS" },
+    { code: "HYD/OE/04/18-19/124", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "HYD/OE/05/18-19/140", desc: "APC UPS" },
+    { code: "HYD/OE/05/18-19/141", desc: "APC UPS" },
+    { code: "HYD/OE/06/18-19/179", desc: "APC UPS" },
+    { code: "HYD/OE/07/18-19/199", desc: "GODREJ ELECTRONIC SAFE" },
+    { code: "HYD/OE/07/18-19/208", desc: "GODREJ ELECTRONIC SAFE" },
+    { code: "HYD/OE/11/19-20/001", desc: "APC SRC3KUXI 3KVA UPS" },
+    { code: "HYD/OE/11/19-20/002", desc: "APC SRC3KUXI 3KVA UPS" },
+    { code: "HYD/OE/11/19-20/003", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "HYD/OE/11/19-20/004", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "HYD/OE/11/19-20/005", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "HYD/OE/11/19-20/006", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "HYD/OE/11/19-20/007", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "HYD/OE/11/19-20/008", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "HYD/OE/12/19-20/054", desc: "Shredder Machine" },
+    { code: "HYD/OE/12/19-20/055", desc: "Biometric machine" }
+  ],
+  "Vijayawada": [
+    { code: "VIJ/OE/06/18-19/186", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "VIJ/OE/06/18-19/187", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "VIJ/OE/07/18-19/215", desc: "GODREJ ELECTRONIC SAFE" },
+    { code: "VIJ/OE/08/18-19/292", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "VIJ/OE/11/18-19/328", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "VIJ/OE/11/19-20/043", desc: "APC SRC3KUXI 3KVA UPS" },
+    { code: "VIJ/OE/11/19-20/044", desc: "APC SRC3KUXI 3KVA UPS" },
+    { code: "VIJ/OE/12/19-20/049", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "VIJ/OE/12/19-20/050", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "VIJ/OE/12/19-20/051", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "VIJ/OE/12/19-20/052", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "VIJ/OE/12/19-20/053", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "VIJ/OE/12/19-20/054", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "VIJ/OE/12/19-20/055", desc: "Shredder Machine" },
+    { code: "VIJ/OE/12/19-20/056", desc: "Biometric machine" }
+  ],
+  "Mangalore": [
+    { code: "MGR/OE/04/23-24/001", desc: "QNTA SMF battery" },
+    { code: "MGR/OE/04/23-24/002", desc: "QNTA SMF battery" },
+    { code: "MGR/OE/04/23-24/003", desc: "QNTA SMF battery" },
+    { code: "MGR/OE/04/23-24/004", desc: "QNTA SMF battery" },
+    { code: "MGR/OE/04/23-24/005", desc: "QNTA SMF battery" },
+    { code: "MGR/OE/04/23-24/006", desc: "QNTA SMF battery" },
+    { code: "MGR/OE/04/23-24/007", desc: "Godrej safe" },
+    { code: "MGR/OE/04/23-24/008", desc: "CCTV camera" },
+    { code: "MGR/OE/04/23-24/009", desc: "ABC fire extinguisher" },
+    { code: "MGR/OE/04/23-24/010", desc: "ABC fire extinguisher" },
+    { code: "MGR/OE/04/23-24/011", desc: "ABC fire extinguisher" },
+    { code: "MGR/OE/04/23-24/012", desc: "Induction stove" },
+    { code: "MGR/OE/04/23-24/013", desc: "Water dispenser" },
+    { code: "MGR/OE/05/23-24/014", desc: "Finger print lock" },
+    { code: "MGR/OE/05/23-24/015", desc: "DVR" },
+    { code: "MGR/OE/05/23-24/016", desc: "APC 3 kva UPS" }
+  ],
+  "Tumkur": [
+    { code: "TUM/OE/09/25-26/001", desc: "Fire Extinguisher" },
+    { code: "TUM/OE/09/25-26/002", desc: "Fire Extinguisher" },
+    { code: "TUM/OE/09/25-26/003", desc: "Fire Extinguisher" },
+    { code: "TUM/OE/09/25-26/004", desc: "WATER DISPANCER" },
+    { code: "TUM/OE/09/25-26/005", desc: "INDUCTION" },
+    { code: "TUM/OE/09/25-26/006", desc: "DVR" },
+    { code: "TUM/OE/09/25-26/007", desc: "CAMERA" },
+    { code: "TUM/OE/09/25-26/008", desc: "GODREJ SAFE" },
+    { code: "TUM/OE/11/25-26/001", desc: "UPS" },
+    { code: "TUM/OE/11/25-26/002", desc: "BATTERY" },
+    { code: "TUM/OE/11/25-26/003", desc: "BATTERY" },
+    { code: "TUM/OE/11/25-26/004", desc: "BATTERY" },
+    { code: "TUM/OE/11/25-26/005", desc: "BATTERY" },
+    { code: "TUM/OE/11/25-26/006", desc: "BATTERY" },
+    { code: "TUM/OE/11/25-26/007", desc: "BATTERY" }
+  ],
+  "Mysore": [
+    { code: "MYS/OE/02/18-19/031", desc: "INDOOR AC" },
+    { code: "MYS/OE/06/18-19/164", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "MYS/OE/06/18-19/182", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "MYS/OE/06/18-19/183", desc: "CCTV CAMERA & ACCESSORIES" },
+    { code: "MYS/OE/07/18-19/202", desc: "GODREJ ELECTRONIC SAFE" },
+    { code: "MYS/OE/07/18-19/214", desc: "GODREJ ELECTRONIC SAFE" },
+    { code: "MYS/OE/11/19-20/037", desc: "APC SRC3KUXI 3KVA UPS" },
+    { code: "MYS/OE/11/19-20/038", desc: "APC SRC3KUXI 3KVA UPS" },
+    { code: "MYS/OE/12/19-20/043", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "MYS/OE/12/19-20/044", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "MYS/OE/12/19-20/045", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "MYS/OE/12/19-20/046", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "MYS/OE/12/19-20/047", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "MYS/OE/12/19-20/048", desc: "EXIDE 12V 42AH SMF BATTERY" },
+    { code: "MYS/OE/12/19-20/049", desc: "Shredder Machine" },
+    { code: "MYS/OE/12/19-20/050", desc: "Biometric machine" }
+  ],
+  "Hubli": [
+    { code: "HUB/OE/01/23-24/001", desc: "New ABC 4KG FIRE EXTINGUSHER" },
+    { code: "HUB/OE/01/23-24/002", desc: "New ABC 4KG FIRE EXTINGUSHER" },
+    { code: "HUB/OE/01/23-24/003", desc: "New Co2 2KG FIRE EXTINGUSHER" },
+    { code: "HUB/OE/02/23-24/001", desc: "BATTERY" },
+    { code: "HUB/OE/02/23-24/002", desc: "BATTERY" },
+    { code: "HUB/OE/02/23-24/003", desc: "BATTERY" },
+    { code: "HUB/OE/02/23-24/004", desc: "BATTERY" },
+    { code: "HUB/OE/02/23-24/005", desc: "BATTERY" },
+    { code: "HUB/OE/02/23-24/006", desc: "BATTERY" },
+    { code: "HUB/OE/02/23-24/007", desc: "GODREJ SAFE" },
+    { code: "HUB/OE/02/23-24/008", desc: "BIOMETRIC FINGER" },
+    { code: "HUB/OE/03/23-24/001", desc: "3KVA UPS" },
+    { code: "HUB/OE/03/23-24/002", desc: "WATER DISPENSER" },
+    { code: "HUB/OE/03/23-24/003", desc: "INDUCTION STOVE" },
+    { code: "HUB/OE/03/23-24/004", desc: "CCTV DVR" },
+    { code: "HUB/OE/03/23-24/005", desc: "CCTV CAMERA" }
+  ],
+  "Belgaum": [
+    { code: "BEL/OE/10/25-26/001", desc: "UPS & Battery Rack" },
+    { code: "BEL/OE/10/25-26/002", desc: "UPS Battery" },
+    { code: "BEL/OE/10/25-26/003", desc: "Induction Top" },
+    { code: "BEL/OE/10/25-26/004", desc: "Water Dispenser" },
+    { code: "BEL/OE/10/25-26/005", desc: "Fire Extinguisher" },
+    { code: "BEL/OE/10/25-26/006", desc: "Fire Extinguisher" },
+    { code: "BEL/OE/10/25-26/007", desc: "Fire Extinguisher" },
+    { code: "BEL/OE/10/25-26/008", desc: "GODREJ SAFE" },
+    { code: "BEL/OE/10/25-26/009", desc: "DVR" },
+    { code: "BEL/OE/10/25-26/010", desc: "CCTV Camera" },
+    { code: "BEL/OE/11/25-26/001", desc: "UPS" },
+    { code: "BEL/OE/11/25-26/002", desc: "BATTERY" },
+    { code: "BEL/OE/11/25-26/003", desc: "BATTERY" },
+    { code: "BEL/OE/11/25-26/004", desc: "BATTERY" },
+    { code: "BEL/OE/11/25-26/005", desc: "BATTERY" },
+    { code: "BEL/OE/11/25-26/006", desc: "BATTERY" },
+    { code: "BEL/OE/11/25-26/007", desc: "BATTERY" }
+  ]
+};
+        const STATE_LANG = {
+"Andhra Pradesh":"te","Telangana":"te",
+"Tamil Nadu":"ta","Karnataka":"kn",
+"Delhi":"hi","Gujarat":"hi","Maharashtra":"hi",
+"Rajasthan":"hi","Uttar Pradesh":"hi","West Bengal":"hi",
+"Punjab":"hi","Haryana":"hi","Madhya Pradesh":"hi",
+"Odisha":"hi","Puducherry":"ta","Jharkhand":"hi","Chandigarh":"hi"
+};
+        const QUESTIONS = {
+q1:{hi:"क्या RBI certificate  Notice बोर्ड पर प्रदर्शित है?/Is RBI certificate displayed on the notice Board?",
+te:"నోటీసు బోర్డులో  RBI certificate   ప్రదర్శించబడిందా?/Is RBI certificate displayed on the notice Board?",
+ta:"அறிவிப்பு பலகையில் RBI certificate  காட்டப்பட்டுள்ளதா?/Is RBI certificate displayed on the notice Board?",
+kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  RBI certificate ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is RBI certificate displayed on the notice Board?"},
+
+q2:{hi:"क्या Certificate of Incorporation  Notice बोर्ड पर प्रदर्शित है?/Is Certificate of Incorporation displayed on notice board?",
+te:"నోటీసు బోర్డులో  Certificate of Incorporation   ప్రదర్శించబడిందా?/Is Certificate of Incorporation displayed on notice board?",
+ta:"அறிவிப்பு பலகையில் Certificate of Incorporation  காட்டப்பட்டுள்ளதா?/Is Certificate of Incorporation displayed on notice board?",
+kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Certificate of Incorporation ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Certificate of Incorporation displayed on notice board?"},
+
+q3:{hi:"क्या Grievance Redressal Policy  Notice बोर्ड पर प्रदर्शित है?/Is Grievance Redressal Policy on the notice Board?",
+te:"నోటీసు బోర్డులో  Grievance Redressal Policy   ప్రదర్శించబడిందా?/Is Grievance Redressal Policy on the notice Board?",
+ta:"அறிவிப்பு பலகையில் Grievance Redressal Policy  காட்டப்பட்டுள்ளதா?/Is Grievance Redressal Policy on the notice Board?",
+kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Grievance Redressal Policy ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Grievance Redressal Policy on the notice Board?"},
+
+q4:{hi:"क्या Employee Grievance Resolution Policy  Notice बोर्ड पर प्रदर्शित है?/Is Employee Grievance Resolution Policy on the notice Board?",
+te:"నోటీసు బోర్డులో  Employee Grievance Resolution Policy   ప్రదర్శించబడిందా?/Is Employee Grievance Resolution Policy on the notice Board?",
+ta:"அறிவிப்பு பலகையில் Employee Grievance Resolution Policy  காட்டப்பட்டுள்ளதா?/Is Employee Grievance Resolution Policy on the notice Board?",
+kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Employee Grievance Resolution Policy ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Employee Grievance Resolution Policy on the notice Board?"},
+
+q5:{hi:"क्या Collection code of conduct  Notice बोर्ड पर प्रदर्शित है?/Is Collection code of conduct on the notice Board?",
+te:"నోటీసు బోర్డులో  Collection code of conduct   ప్రదర్శించబడిందా?/Is Collection code of conduct on the notice Board?",
+ta:"அறிவிப்பு பலகையில் Collection code of conduct  காட்டப்பட்டுள்ளதா?/Is Collection code of conduct on the notice Board?",
+kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Collection code of conduct ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Collection code of conduct on the notice Board?"},
+
+q6:{hi:"क्या Whistle Blower Policy  Notice बोर्ड पर प्रदर्शित है?/Is Whistle Blower Policy on the notice Board?",
+te:"నోటీసు బోర్డులో  Whistle Blower Policy   ప్రదర్శించబడిందా?/Is Whistle Blower Policy on the notice Board?",
+ta:"அறிவிப்பு பலகையில் Whistle Blower Policy  காட்டப்பட்டுள்ளதா?/Is Whistle Blower Policy on the notice Board?",
+kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Whistle Blower Policy ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Whistle Blower Policy on the notice Board?"},
+
+q7:{hi:"क्या Code of conduct  Notice बोर्ड पर प्रदर्शित है?/Is Code of conduct on the notice Board?",
+te:"నోటీసు బోర్డులో  Code of conduct   ప్రదర్శించబడిందా?/Is Code of conduct on the notice Board?",
+ta:"அறிவிப்பு பலகையில் Code of conduct  காட்டப்பட்டுள்ளதா?/Is Code of conduct on the notice Board?",
+kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Code of conduct ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Code of conduct on the notice Board?"},
+
+q8:{hi:"क्या Quality Policy  Notice बोर्ड पर प्रदर्शित है?/Is Quality Policy on the notice Board?",
+te:"నోటీసు బోర్డులో  Quality Policy   ప్రదర్శించబడిందా?/Is Quality Policy on the notice Board?",
+ta:"அறிவிப்பு பலகையில் Quality Policy  காட்டப்பட்டுள்ளதா?/Is Quality Policy on the notice Board?",
+kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Quality Policy ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Quality Policy on the notice Board?"},
+
+q9:{hi:"क्या Sexual Harassment policy  Notice बोर्ड पर प्रदर्शित है?/Is Sexual Harassment policy on the notice Board?",
+te:"నోటీసు బోర్డులో  Sexual Harassment policy   ప్రదర్శించబడిందా?/Is Sexual Harassment policy on the notice Board?",
+ta:"அறிவிப்பு பலகையில் Sexual Harassment policy  காட்டப்பட்டுள்ளதா?/Is Sexual Harassment policy on the notice Board?",
+kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Sexual Harassment policy ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Sexual Harassment policy on the notice Board?"},
+
+q10:{hi:"क्या Fair Practice Code  Notice बोर्ड पर प्रदर्शित है?/Is Fair Practice Code on the notice Board?",
+te:"నోటీసు బోర్డులో  Fair Practice Code   ప్రదర్శించబడిందా?/Is Fair Practice Code on the notice Board?",
+ta:"அறிவிப்பு பலகையில் Fair Practice Code  காட்டப்பட்டுள்ளதா?/Is Fair Practice Code on the notice Board?",
+kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Fair Practice Code ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Fair Practice Code on the notice Board?"},
+
+q11:{hi:"क्या Consumer Education Literature on SMA, NPA Classification and Upgradation  Notice बोर्ड पर प्रदर्शित है?/Is Consumer Education Literature on SMA, NPA Classification and Upgradation on the notice Board?",
+te:"నోటీసు బోర్డులో  Consumer Education Literature on SMA, NPA Classification and Upgradation   ప్రదర్శించబడిందా?/Is Consumer Education Literature on SMA, NPA Classification and Upgradation on the notice Board?",
+ta:"அறிவிப்பு பலகையில் Consumer Education Literature on SMA, NPA Classification and Upgradation  காட்டப்பட்டுள்ளதா?/Is Consumer Education Literature on SMA, NPA Classification and Upgradation on the notice Board?",
+kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Consumer Education Literature on SMA, NPA Classification and Upgradation ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Consumer Education Literature on SMA, NPA Classification and Upgradation on the notice Board?"},
+
+q12:{hi:"क्या Customer Grievance Redressal Mechanism  Notice बोर्ड पर प्रदर्शित है?/Is Customer Grievance Redressal Mechanism on the notice Board?",
+te:"నోటీసు బోర్డులో  Customer Grievance Redressal Mechanism   ప్రదర్శించబడిందా?/Is Customer Grievance Redressal Mechanism on the notice Board?",
+ta:"அறிவிப்பு பலகையில் Customer Grievance Redressal Mechanism  காட்டப்பட்டுள்ளதா?/Is Customer Grievance Redressal Mechanism on the notice Board?",
+kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Customer Grievance Redressal Mechanism ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Customer Grievance Redressal Mechanism on the notice Board?"},
+
+q13:{hi:"क्या Ombudsman certificate ( 3 languages)  Notice बोर्ड पर प्रदर्शित है?/Is Ombudsman certificate ( 3 languages) on the notice Board?",
+te:"నోటీసు బోర్డులో  Ombudsman certificate ( 3 languages)   ప్రదర్శించబడిందా?/Is Ombudsman certificate ( 3 languages) on the notice Board?",
+ta:"அறிவிப்பு பலகையில் Ombudsman certificate ( 3 languages)  காட்டப்பட்டுள்ளதா?/Is Ombudsman certificate ( 3 languages) on the notice Board?",
+kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Ombudsman certificate ( 3 languages) ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Ombudsman certificate ( 3 languages) on the notice Board?"},
+
+q14:{hi:"क्या S&E certificate  Notice बोर्ड पर प्रदर्शित है?/Is S&E certificate on the notice Board?",
+te:"నోటీసు బోర్డులో  S&E certificate   ప్రదర్శించబడిందా?/Is S&E certificate on the notice Board?",
+ta:"அறிவிப்பு பலகையில் S&E certificate  காட்டப்பட்டுள்ளதா?/Is S&E certificate on the notice Board?",
+kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  S&E certificate ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is S&E certificate on the notice Board?"},
+
+q15:{hi:"क्या GSTN certificate  Notice बोर्ड पर प्रदर्शित है?/Is GSTN certificate on the notice Board?",
+te:"నోటీసు బోర్డులో  GSTN certificate   ప్రదర్శించబడిందా?/Is GSTN certificate on the notice Board?",
+ta:"அறிவிப்பு பலகையில் GSTN certificate  காட்டப்பட்டுள்ளதா?/Is GSTN certificate on the notice Board?",
+kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  GSTN certificate ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is GSTN certificate on the notice Board?"},
+
+q16:{hi:"क्या Holiday List  Notice बोर्ड पर प्रदर्शित है?/Is Holiday List on the notice Board?",
+te:"నోటీసు బోర్డులో  Holiday List   ప్రదర్శించబడిందా?/Is Holiday List on the notice Board?",
+ta:"அறிவிப்பு பலகையில் Holiday List  காட்டப்பட்டுள்ளதா?/Is Holiday List on the notice Board?",
+kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Holiday List ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Holiday List on the notice Board?"},
+
+q17:{hi:"क्या Trade License  Notice बोर्ड पर प्रदर्शित है?/Is Trade License on the notice Board?",
+te:"నోటీసు బోర్డులో  Trade License   ప్రదర్శించబడిందా?/Is Trade License on the notice Board?",
+ta:"அறிவிப்பு பலகையில் Trade License  காட்டப்பட்டுள்ளதா?/Is Trade License on the notice Board?",
+kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Trade License ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Trade License on the notice Board?"},
+
+q18:{hi:"क्या ISO certificate  Notice बोर्ड पर प्रदर्शित है?/Is ISO certificate on the notice Board?",
+te:"నోటీసు బోర్డులో  ISO certificate   ప్రదర్శించబడిందా?/Is ISO certificate on the notice Board?",
+ta:"அறிவிப்பு பலகையில் ISO certificate  காட்டப்பட்டுள்ளதா?/Is ISO certificate on the notice Board?",
+kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  ISO certificate ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is ISO certificate on the notice Board?"},
+
+// Page 2: General querries
+q19:{hi:"क्या Abstracts & Notices लगे हैं?/Abstracts & Notices?",
+te:"Abstracts & Notices ఉన్నాయా?/Abstracts & Notices?",
+ta:"Abstracts & Notices உள்ளதா?/Abstracts & Notices?",
+kn:"Abstracts & Notices ಇದೆಯೇ?/Abstracts & Notices?"},
+
+q20:{hi:"क्या Office Address Board लगा है?/Office Address Board?",
+te:"Office Address Board ఉందా?/Office Address Board?",
+ta:"Office Address Board உள்ளதா?/Office Address Board?",
+kn:"Office Address Board ಇದೆಯೇ?/Office Address Board?"},
+
+q21:{hi:"क्या First Aid Box उपलब्ध है (expiry check)?/First Aid Box (check expiry)?",
+te:"First Aid Box ఉందా (expiry check)?/First Aid Box (check expiry)?",
+ta:"First Aid Box உள்ளதா (expiry check)?/First Aid Box (check expiry)?",
+kn:"First Aid Box ಇದೆಯೇ (expiry check)?/First Aid Box (check expiry)?"},
+
+q22:{hi:"क्या ERT List उपलब्ध है?/ERT List?",
+te:"ERT List ఉందా?/ERT List?",
+ta:"ERT List உள்ளதா?/ERT List?",
+kn:"ERT List ಇದೆಯೇ?/ERT List?"},
+
+q23:{hi:"क्या Emergency contact list उपलब्ध है (Doctor/Hospital/Police/Fire/Ambulance)?/Emergency contact list?",
+te:"Emergency contact list ఉందా?/Emergency contact list?",
+ta:"Emergency contact list உள்ளதா?/Emergency contact list?",
+kn:"Emergency contact list ಇದೆಯೇ?/Emergency contact list?"},
+
+q24:{hi:"क्या Fire Exit Signages लगे हैं?/Fire Exit Signages?",
+te:"Fire Exit Signages ఉన్నాయా?/Fire Exit Signages?",
+ta:"Fire Exit Signages உள்ளதா?/Fire Exit Signages?",
+kn:"Fire Exit Signages ಇದೆಯೇ?/Fire Exit Signages?"},
+
+q25:{hi:"Branch में कितने Fire Extinguishers उपलब्ध हैं?/Number of Fire Extinguishers in branch?",
+te:"Branch లో ఎంతమంది Fire Extinguishers ఉన్నాయి?/Number of Fire Extinguishers in branch?",
+ta:"Branch-ல் எத்தனை Fire Extinguishers உள்ளன?/Number of Fire Extinguishers in branch?",
+kn:"Branch ನಲ್ಲಿ ಎಷ್ಟು Fire Extinguishers ಇವೆ?/Number of Fire Extinguishers in branch?"},
+
+q26:{hi:"क्या UPS On/Off Instructions लगी हैं?/UPS On/Off Instructions near location?",
+te:"UPS On/Off Instructions ఉన్నాయా?/UPS On/Off Instructions near location?",
+ta:"UPS On/Off Instructions உள்ளதா?/UPS On/Off Instructions near location?",
+kn:"UPS On/Off Instructions ಇದೆಯೇ?/UPS On/Off Instructions near location?"},
+
+q27:{hi:"क्या Electrical On/Off Instructions लगी हैं?/Electrical On/Off Instructions near location?",
+te:"Electrical On/Off Instructions ఉన్నాయా?/Electrical On/Off Instructions near location?",
+ta:"Electrical On/Off Instructions உள்ளதా?/Electrical On/Off Instructions near location?",
+kn:"Electrical On/Off Instructions ಇದೆಯೇ?/Electrical On/Off Instructions near location?"},
+
+// Page 3: Registers
+q28:{hi:"Customer Complaint Register के आखिरी 2 पन्नों की कम से कम 2 तस्वीरें अपलोड करें।/Upload photo of last 2 pages of  Customer Complaint Register",
+te:"Customer Complaint Register యొక్క చివరి 2 పేజీల యొక్క కనీసం 2 ఫోటోలను అప్‌లోడ్ చేయండి./Upload photo of last 2 pages of  Customer Complaint Register",
+ta:"Customer Complaint Register இன் கடைசிப் பக்கத்தின் குறைந்தபட்சம் 2 புகைப்படங்களைப் பதிவேற்றவும்./Upload photo of last 2 pages of  Customer Complaint Register",
+kn:"Customer Complaint Register ನ ಕೊನೆಯ ಪುಟದ ಕನಿಷ್ಠ 2 ಫೋಟೋಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ./Upload photo of last 2 pages of  Customer Complaint Register"},
+
+q29:{hi:"Office Opening & Closing Register के आखिरी 2 पन्नों की कम से कम 2 तस्वीरें अपलोड करें।/Upload photo of last 2 pages of  Office Opening & Closing Register",
+te:"Office Opening & Closing Register యొక్క చివరి 2 పేజీల యొక్క కనీసం 2 ఫోటోలను అప్‌లోడ్ చేయండి./Upload photo of last 2 pages of  Office Opening & Closing Register",
+ta:"Office Opening & Closing Register இன் கடைசிப் பக்கத்தின் குறைந்தபட்சம் 2 புகைப்படங்களைப் பதிவேற்றவும்./Upload photo of last 2 pages of  Office Opening & Closing Register",
+kn:"Office Opening & Closing Register ನ ಕೊನೆಯ ಪುಟದ ಕನಿಷ್ಠ 2 ಫೋಟೋಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ./Upload photo of last 2 pages of  Office Opening & Closing Register"},
+
+q30:{hi:"Visitor Register के आखिरी 2 पन्नों की कम से कम 2 तस्वीरें अपलोड करें।/Upload photo of last 2 pages of  Visitor Register",
+te:"Visitor Register యొక్క చివరి 2 పేజీల యొక్క కనీసం 2 ఫోటోలను అప్‌లోడ్ చేయండి./Upload photo of last 2 pages of  Visitor Register",
+ta:"Visitor Register இன் கடைசிப் பக்கத்தின் குறைந்தபட்சம் 2 புகைப்படங்களைப் பதிவேற்றவும்./Upload photo of last 2 pages of  Visitor Register",
+kn:"Visitor Register ನ ಕೊನೆಯ ಪುಟದ ಕನಿಷ್ಠ 2 ಫೋಟೋಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ./Upload photo of last 2 pages of  Visitor Register"},
+
+q31:{hi:"Courier inward Register के आखिरी 2 पन्नों की कम से कम 2 तस्वीरें अपलोड करें।/Upload photo of last 2 pages of  Courier inward Register",
+te:"Courier inward Register యొక్క చివరి 2 పేజీల యొక్క కనీసం 2 ఫోటోలను అప్‌లోడ్ చేయండి./Upload photo of last 2 pages of  Courier inward Register",
+ta:"Courier inward Register இன் கடைசிப் பக்கத்தின் குறைந்தபட்சம் 2 புகைப்படங்களைப் பதிவேற்றவும்./Upload photo of last 2 pages of  Courier inward Register",
+kn:"Courier inward Register ನ ಕೊನೆಯ ಪುಟದ ಕನಿಷ್ಠ 2 ಫೋಟೋಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ./Upload photo of last 2 pages of  Courier inward Register"},
+
+q32:{hi:"Courier outward Register के आखिरी 2 पन्नों की कम से कम 2 तस्वीरें अपलोड करें।/Upload photo of last 2 pages of  Courier outward Register",
+te:"Courier outward Register యొక్క చివరి 2 పేజీల యొక్క కనీసం 2 ఫోటోలను అప్‌లోడ్ చేయండి./Upload photo of last 2 pages of  Courier outward Register",
+ta:"Courier outward Register இன் கடைசிப் பக்கத்தின் குறைந்தபட்சம் 2 புகைப்படங்களைப் பதிவேற்றவும்./Upload photo of last 2 pages of  Courier outward Register",
+kn:"Courier outward Register ನ ಕೊನೆಯ ಪುಟದ ಕನಿಷ್ಠ 2 ಫೋಟೋಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ./Upload photo of last 2 pages of  Courier outward Register"},
+
+q33:{hi:"Material Inward Register के आखिरी 2 पन्नों की कम से कम 2 तस्वीरें अपलोड करें।/Upload photo of last 2 pages of  Material Inward Register",
+te:"Material Inward Register యొక్క చివరి 2 పేజీల యొక్క కనీసం 2 ఫోటోలను అప్‌లోడ్ చేయండి./Upload photo of last 2 pages of  Material Inward Register",
+ta:"Material Inward Register இன் கடைசிப் பக்கத்தின் குறைந்தபட்சம் 2 புகைப்படங்களைப் பதிவேற்றவும்./Upload photo of last 2 pages of  Material Inward Register",
+kn:"Material Inward Register ನ ಕೊನೆಯ ಪುಟದ ಕನಿಷ್ಠ 2 ಫೋಟೋಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ./Upload photo of last 2 pages of  Material Inward Register"},
+
+q34:{hi:"Material Outward Register के आखिरी 2 पन्नों की कम से कम 2 तस्वीरें अपलोड करें।/Upload photo of last 2 pages of  Material Outward Register",
+te:"Material Outward Register యొక్క చివరి 2 పేజీల యొక్క కనీసం 2 ఫోటోలను అప్‌లోడ్ చేయండి./Upload photo of last 2 pages of  Material Outward Register",
+ta:"Material Outward Register இன் கடைசிப் பக்கத்தின் குறைந்தபட்சம் 2 புகைப்படங்களைப் பதிவேற்றவும்./Upload photo of last 2 pages of  Material Outward Register",
+kn:"Material Outward Register ನ ಕೊನೆಯ ಪುಟದ ಕನಿಷ್ಠ 2 ಫೋಟೋಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ./Upload photo of last 2 pages of  Material Outward Register"},
+
+q35:{hi:"Key Register के आखिरी 2 पन्नों की कम से कम 2 तस्वीरें अपलोड करें।/Upload photo of last 2 pages of  Key Register",
+te:"Key Register యొక్క చివరి 2 పేజీల యొక్క కనీసం 2 ఫోటోలను అప్‌లోడ్ చేయండి./Upload photo of last 2 pages of  Key Register",
+ta:"Key Register இன் கடைசிப் பக்கத்தின் குறைந்தபட்சம் 2 புகைப்படங்களைப் பதிவேற்றவும்./Upload photo of last 2 pages of  Key Register",
+kn:"Key Register ನ ಕೊನೆಯ ಪುಟದ ಕನಿಷ್ಠ 2 ಫೋಟೋಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ./Upload photo of last 2 pages of  Key Register"},
+
+q36:{hi:"Stationery Register के आखिरी 2 पन्नों की कम से कम 2 तस्वीरें अपलोड करें।/Upload photo of last 2 pages of  Stationery Register",
+te:"Stationery Register యొక్క చివరి 2 పేజీల యొక్క కనీసం 2 ఫోటోలను అప్‌లోడ్ చేయండి./Upload photo of last 2 pages of  Stationery Register",
+ta:"Stationery Register இன் கடைசிப் பக்கத்தின் குறைந்தபட்சம் 2 புகைப்படங்களைப் பதிவேற்றவும்./Upload photo of last 2 pages of  Stationery Register",
+kn:"Stationery Register ನ ಕೊನೆಯ ಪುಟದ ಕನಿಷ್ಠ 2 ಫೋಟೋಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ./Upload photo of last 2 pages of  Stationery Register"},
+
+q37:{hi:"branch के अंदर washroom है?/washroom inside the branch",
+te:"branch లోపల washroom ఉంది?/is there washroom inside the branch",
+ta:"branch உள்ளே washroom உள்ளது?/is there washroom inside the branch",
+kn:"branch ಒಳಗೆ washroom ಇದೆ?/is there washroom inside the branch"},
+
+// Page 4: HR
+q38:{hi:"HR Documents के सभी pages की फोटो अपलोड करें/Upload photo of all pages of  HR Documents",
+te:"HR Documents యొక్క అన్ని పేజీల ఫోటోలను అప్‌లోడ్ చేయండి./Upload photo of all pages of  HR Documents",
+ta:"HR Documents இன் அனைத்து Pages புகைப்படங்களையும் பதிவேற்றவும்./Upload photo of all pages of  HR Documents",
+kn:"HR Documents ನ ಎಲ್ಲಾ ಪುಟಗಳ ಫೋಟೋಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ./Upload photo of all pages of  HR Documents"},
+
+
+// Page 5: Branch Info
+q39:{hi:"Branch में कितने AC हैं?/How Many AC are there in the branch?",
+te:"బ్రాంచ్ లో ఎన్ని ACలు ఉన్నాయి?/How Many AC are there in the branch?",
+ta:"கிளையில் எத்தனை ஏசிகள் உள்ளன?/How Many AC are there in the branch?",
+kn:"ಬ್ರಾಂಚ್‌ನಲ್ಲಿ ಎಷ್ಟು ಎಸಿಗಳಿವೆ?/How Many AC are there in the branch?"},
+
+q40:{hi:"बायोमेट्रिक मशीन काम कर रही है/Biometric machine working?",
+te:"బయోమెట్రిక్ మెషిన్ పనిచేస్తుందా?/Biometric machine working?",
+ta:"பயோமெట্রিক இயந்திரம் வேலை செய்கிறதா?/Biometric machine working?",
+kn:"ಬಯೋಮೆಟ್ರಿಕ್ ಯಂತ್ರ ಕೆಲಸ ಮಾಡುತ್ತಿದೆಯೇ?}/Biometric machine working?"},
+
+q41:{hi:"बायोमेट्रिक लॉक काम कर रहा है?/Biometric Lock working?",
+te:"బయోమెట్రిక్ లాక్ పనిచేస్తుందా?/Biometric Lock working?",
+ta:"பயோமெட்ட্রিক லாக் வேலை செய்கிறதா?/Biometric Lock working?",
+kn:"ಬಯೋಮೆಟ್ರಿಕ್ ಲಾಕ್ ಕೆಲಸ ಮಾಡುತ್ತಿದೆಯೇ?/Biometric Lock working?"},
+
+
+
+// Page 6: Fixed Assets Register
+q42:{hi:"सभी fixed asset code की फोटो अपलोड करें/upload photo of all fixed asset code",
+te:"అన్ని fixed asset code ఫోటోలను అప్‌లోడ్ చేయండి/upload photo of all fixed asset code",
+ta:"fixed asset code புகைப்படங்கள் அனைத்தையும் பதிவேற்று./upload photo of all fixed asset code",
+kn:"ಎಲ್ಲಾ fixed asset code ಫೋಟೋಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ/upload photo of all fixed asset code"}
+
+
+};
+        const branchMap = {
+"Andhra Pradesh":["Tirupati","Vijayawada","Visakhapatnam"],
+"Telangana":["Hyderabad"],
+"Tamil Nadu":["Chennai","Coimbatore","Madurai","Salem","Tirupur","Tiruvallur"],
+"Karnataka":["Bangalore","Belgaum","Gulbarga","Hubballi","Mangalore","Mysore","Tumkur"],
+"Delhi":["Delhi"],
+"Gujarat":["Ahmedabad","Baroda","Rajkot","Surat"],
+"Maharashtra":["Aurangabad","Borivali","Kolhapur","Nagpur","Nashik","Pune","Thane"],
+"Rajasthan":["Ajmer","Jaipur","Jodhpur","Sikar","Udaipur"],
+"Uttar Pradesh":["Lucknow"],
+"West Bengal":["Kolkata"],
+"Punjab":["Jalandhar","Ludhiana"],
+"Haryana":["Panipat"],
+"Madhya Pradesh":["Bhopal","Gwalior","Indore"],
+"Odisha":["Bhubaneswar"],
+"Puducherry":["Puducherry"],
+"Jharkhand":["Jamshedpur"],
+"Chandigarh":["Chandigarh"]
+};
+
+        const trade = ["Bhubaneswar","Hyderabad","Kolkata","Puducherry","Tirupati"];
+        const iso = ["Bangalore","Chennai","Delhi","Hyderabad","Jaipur","Pune","Kolkata","Coimbatore","Ahmedabad"];
+        const SCRIPT_URL = "YOUR_APPS_SCRIPT_URL_HERE";
+
+        let currentPage = 1;
+        let submissionId = localStorage.getItem('subId') || "ID_" + Date.now();
+        localStorage.setItem('subId', submissionId);
+
+        // Section: Render Logic
+        function initBranch() {
+            const st = document.getElementById('state').value;
+            const bDrop = document.getElementById('branch');
+            bDrop.innerHTML = '<option value="">--Branch--</option>';
+            if(branchMap[st]) branchMap[st].forEach(b => bDrop.innerHTML += `<option value="${b}">${b}</option>`);
+        }
+
+        function renderQuestions() {
+            const lang = STATE_LANG[document.getElementById('state').value] || 'en';
+            const branch = document.getElementById('branch').value;
+            
+            for(let p=1; p<=6; p++) {
+                const container = document.getElementById(`q-container-${p}`);
+                if(!container) continue;
+                container.innerHTML = '';
+                
+                let qRange = getRange(p);
+                qRange.forEach(qid => {
+                    if(qid === 17 && !trade.includes(branch)) return;
+                    if(qid === 18 && !iso.includes(branch)) return;
+                    
+                    container.innerHTML += createQRendering(qid, lang);
+                });
+            }
+            updateLabels(lang);
+        }
+
+        function createQRendering(qid, lang) {
+            const q = QUESTIONS[qid];
+            let html = `<div class="q-box" id="box_q${qid}"><p>${q[lang]}</p>`;
+            html += `<input type="radio" name="q${qid}" value="Yes" onchange="toggleExtra(${qid})"> Yes 
+                     <input type="radio" name="q${qid}" value="No" onchange="toggleExtra(${qid})"> No`;
+            
+            // Photo & Extra fields based on logic
+            html += `<div id="extra_${qid}" style="display:none; margin-top:10px;">`;
+            if(qid >= 3 && qid <= 10) {
+                html += `<input type="text" id="v_q${qid}" placeholder="Version">
+                         <input type="date" id="id_q${qid}"> <input type="date" id="ed_q${qid}">`;
+            }
+            html += `<input type="file" accept="image/*" capture="camera" id="f_q${qid}" onchange="handleFile(${qid})" multiple>
+                     <div id="prev_${qid}" class="photo-preview"></div></div></div>`;
+            return html;
+        }
+
+        function getRange(p) {
+            if(p===1) return Array.from({length: 18}, (_, i) => i + 1);
+            if(p===2) return [19,20,21,22,23,24,25,26,27];
+            if(p===3) return [28,29,30,31,32,33,34,35,36,37];
+            if(p===4) return [38];
+            if(p===5) return [39,40,41];
+            if(p===6) return [42];
+            return [];
+        }
+
+        // Section: Validation & Save
+        function validatePage() {
+            let isValid = true;
+            const container = document.getElementById(`q-container-${currentPage}`);
+            const boxes = container.querySelectorAll('.q-box');
+            
+            boxes.forEach(box => {
+                const qid = box.id.replace('box_q', '');
+                const val = document.querySelector(`input[name="q${qid}"]:checked`);
+                box.classList.remove('error-highlight');
+
+                if(!val) { isValid = false; box.classList.add('error-highlight'); }
+                else if(val.value === "Yes") {
+                   // Add photo/date mandatory checks here based on logic
+                }
+            });
+            if(!isValid) alert(msgLabels[STATE_LANG[document.getElementById('state').value]].pending);
+            return isValid;
+        }
+
+        async function handleNext() {
+            if(!validatePage()) return;
+            
+            const payload = buildPayload();
+            // Save to localStorage or Send to Apps Script
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                if(currentPage < 6) changePage(1);
+                else alert("Final Submitted!");
+            } catch(e) { console.error(e); }
+        }
+
+        function buildPayload() {
+            return {
+                submissionId: submissionId,
+                pageNumber: currentPage,
+                state: document.getElementById('state').value,
+                branch: document.getElementById('branch').value,
+                responses: {} // Collect all inputs here
+            };
+        }
+
+        function changePage(step) {
+            document.getElementById(`page${currentPage}`).classList.remove('active');
+            currentPage += step;
+            document.getElementById(`page${currentPage}`).classList.add('active');
+            document.getElementById('btnBack').style.display = currentPage > 1 ? 'block' : 'none';
+        }
+
+        function updateLabels(lang) {
+            document.getElementById('btnBack').innerText = msgLabels[lang].back;
+            document.getElementById('btnNext').innerText = currentPage === 6 ? "Final Submit" : msgLabels[lang].next;
+        }
+    </script>
+</body>
+</html>
