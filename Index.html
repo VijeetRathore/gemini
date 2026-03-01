@@ -3,32 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Branch Audit</title>
+    <title>Branch Compliance Audit</title>
     <style>
-        body { font-family: sans-serif; margin: 10px; background: #f0f2f5; }
-        .page { display: none; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        :root { --blue: #007bff; --red: #dc3545; --gray: #f8f9fa; }
+        body { font-family: sans-serif; background: var(--gray); margin: 0; padding: 10px; }
+        .page { display: none; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 600px; margin: auto; }
         .active { display: block; }
-        .q-box { border-left: 5px solid #007bff; background: #fdfdfd; padding: 12px; margin-bottom: 15px; border-radius: 4px; border-bottom: 1px solid #eee; }
-        .error-highlight { border: 2px solid red !important; background: #fff5f5 !important; }
-        .btn-container { display: flex; justify-content: space-between; margin-top: 20px; position: sticky; bottom: 10px; }
-        button { padding: 12px 25px; cursor: pointer; border: none; border-radius: 4px; background: #007bff; color: white; font-weight: bold; }
-        input, select { width: 100%; margin: 8px 0; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
-        .radio-grp { margin: 10px 0; display: flex; gap: 20px; }
-        .photo-preview img { width: 60px; height: 60px; object-fit: cover; margin: 5px; border: 1px solid #ddd; }
+        .q-box { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 8px; }
+        .error-highlight { border: 2px solid var(--red) !important; background: #fff5f5; }
+        .btn-container { display: flex; justify-content: space-between; max-width: 600px; margin: 20px auto; }
+        button { padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        #btnNext { background: var(--blue); color: #fff; width: 100%; margin-left: 10px; }
+        #btnBack { background: #6c757d; color: #fff; }
+        input, select { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        .radio-grp { display: flex; gap: 20px; margin: 10px 0; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="app">
+    <div id="main-form">
         <div id="page1" class="page active">
-            <h3>Basic Details</h3>
-            <select id="state" onchange="initBranch()"></select>
-            <select id="branch" onchange="renderQuestions()"></select>
+            <h3 id="head_details">Basic Details</h3>
+            <select id="state" onchange="loadBranches()"></select>
+            <select id="branch" onchange="startAudit()"></select>
             <input type="text" id="branchHead" placeholder="Branch Head Name">
             <input type="text" id="officeBoy" placeholder="Office Boy Name">
-            <hr>
             <div id="q-container-1"></div>
         </div>
+
         <div id="page2" class="page"><div id="q-container-2"></div></div>
         <div id="page3" class="page"><div id="q-container-3"></div></div>
         <div id="page4" class="page"><div id="q-container-4"></div></div>
@@ -36,464 +38,150 @@
         <div id="page6" class="page"><div id="q-container-6"></div></div>
 
         <div class="btn-container">
-            <button id="btnBack" onclick="changePage(-1)" style="visibility:hidden;">Back</button>
-            <button id="btnNext" onclick="handleNext()">Next</button>
+            <button id="btnBack" onclick="changePage(-1)" style="display:none;">Back</button>
+            <button id="btnNext" onclick="handleFlow()">Next</button>
         </div>
     </div>
 
     <script>
-        // ======= PASTE YOUR DATA HERE =======
-        const msgLabels = {hi: {
-     y: "हाँ / Yes", n: "नहीं / No",
-     next: "save और आगे बढ़ें / Save & Next",
-    back: "पीछे जाएं / Back",
-     photo: "फोटो अपलोड करें। / UPLOAD PHOTO!",
-     date: "Date ठीक करें / WRONG DATE!",
-     version: "कृपया Version No भरें / Please enter Version No!",
-     firstAidTip: "सारी दवाइयाँ एक साथ रखें ताकि सभी expiry dates दिखें, फिर फोटो क्लिक करें। / Arrange all the medicines next to each other so expiry date of all medicines is visible and then click the photo.",
-     selectCount: "कृपया Fire Extinguisher की संख्या चुनें (max 15). / Please select number of Fire Extinguishers (max 15).",
-     pending: "कृपया सारी जानकारी भरें (लाल रंग में हाईलाइट किया गया)। / fill all details (highlighted in red).",
-     success: "Report सबमिट हो गया है! / Report Submitted successfully.",
-     wait: "कृपया प्रतीक्षा करें, डेटा भेजा जा रहा है…",
-   },
-   te: {
-     y: "అవును / Yes", n: "కాదు / No",
-    next: "సేవ్ చేసి కొనసాగండి / Save & Next",
-    back: "మునుపటి పేజీకి వెళ్ళండి / Back",
-     photo: "ఫోటోను అప్‌లోడ్ చేయండి / UPLOAD PHOTO!",
-     date: "తేదీని నిర్ణయించండి / INVALID DATE!",
-     firstAidTip: "అన్ని మందులను కలిపి ఉంచండి, తద్వారా అన్ని మందుల expiry date స్పష్టంగా కనిపిస్తుంది, తరువాత photo తీసుకోండి./ Arrange all the medicines next to each other so expiry date of all medicines is visible and then click the photo.",
-     selectCount: "कृपया Fire Extinguisher की संख्या चुनें (max 15). / Please select number of Fire Extinguishers (max 15).",
-     version: "దయచేసి version no ని నమోదు చేయండి / Please enter Version No!",
-     pending: "దయచేసి అన్ని వివరాలను పూరించండి (ఎరుపు రంగులో హైలైట్ చేయబడింది). / Please fill all details (highlighted in red).",
-     success: "నివేదిక విజయవంతంగా సమర్పించబడింది. / Report Submitted successfully.",
-     wait: "దయచేసి వేచి ఉండండి, డేటా పంపబడుతోంది…",
-   },
-   ta: {
-     y: "ஆம் / Yes", n: "இல்லை / No",
-       next: "சேமித்து தொடரவும் / Save & Next",
-    back: "முந்தைய பக்கத்திற்கு செல்லவும் / Back",
-     photo: "புகைப்படத்தை பதிவேற்றவும் / UPLOAD PHOTO!",
-     date: "தேதியை நிர்ணயிக்கவும் / INVALID DATE!",
-     version: "version no ஐ உள்ளிடவும். / Please enter Version No!",
-     firstAidTip: "அனைத்து மருந்துகளின் expiry date தெளிவாகத் தெரியும்படி அனைத்து மருந்துகளையும் ஒன்றாக வைக்கவும், பின்னர் photo எடுத்துக்கொள்ளவும்./ Arrange all the medicines next to each other so expiry date of all medicines is visible and then click the photo.",
-     selectCount: "कृपया Fire Extinguisher की संख्या चुनें (max 15). / Please select number of Fire Extinguishers (max 15).",
-     pending: "தயவுசெய்து அனைத்து விவரங்களையும் நிரப்பவும் (சிவப்பு நிறத்தில் சிறப்பிக்கப்பட்டுள்ளது). / Please fill all details (highlighted in red).",
-     success: "அறிக்கை வெற்றிகரமாக சமர்ப்பிக்கப்பட்டது./ Report Submitted successfully.",
-     wait: "தயவுசெய்து காத்திருக்கவும், தரவு அனுப்பப்படுகிறது…",
-   },
-   kn: {
-     y: "ಹೌದು / Yes", n: "ಇಲ್ಲ / No",
-       next: "ಉಳಿಸಿ ಮತ್ತು ಮುಂದುವರೆಯಿರಿ / Save & Next",
-    back: "ಹಿಂದಿನ ಪುಟಕ್ಕೆ ಹೋಗಿ / Back",
-     photo: "ಫೋಟೋ ಅಪ್ಲೋಡ್ / UPLOAD PHOTO!",
-     date: "ದಿನಾಂಕವನ್ನು ನಿಗದಿಪಡಿಸಿ / INVALID DATE!",
-     version: "ದಯವಿಟ್ಟು version no ನಮೂದಿಸಿ / Please enter Version No!",
-     firstAidTip: "ಎಲ್ಲಾ ಔಷಧಿಗಳ expiry date ಸ್ಪಷ್ಟವಾಗಿ ಗೋಚರಿಸುವಂತೆ ಎಲ್ಲಾ ಔಷಧಿಗಳನ್ನು ಒಟ್ಟಿಗೆ ಇರಿಸಿ, ನಂತರ photo ತೆಗೆದುಕೊಳ್ಳಿ/ Arrange all the medicines next to each other so expiry date of all medicines is visible and then click the photo.",
-     selectCount: "कृपया Fire Extinguisher की संख्या चुनें (max 15). / Please select number of Fire Extinguishers (max 15).",
-     pending: "ದಯವಿಟ್ಟು ಎಲ್ಲಾ ವಿವರಗಳನ್ನು ಭರ್ತಿ ಮಾಡಿ (ಕೆಂಪು ಬಣ್ಣದಲ್ಲಿ ಹೈಲೈಟ್ ಮಾಡಲಾಗಿದೆ). / Please fill all details (highlighted in red).",
-     success: "ವರದಿಯನ್ನು ಯಶಸ್ವಿಯಾಗಿ ಸಲ್ಲಿಸಲಾಗಿದೆ. / Report Submitted successfully.",
-     wait: "ದಯವಿಟ್ಟು ಕಾಯಿರಿ, ಡೇಟಾ ಕಳುಹಿಸಲಾಗುತ್ತಿದೆ…",
-   }
- }; // Your msgLabels object
-        const QUESTIONS = {
-            q1:{hi:"क्या RBI certificate  Notice बोर्ड पर प्रदर्शित है?/Is RBI certificate displayed on the notice Board?",
-te:"నోటీసు బోర్డులో  RBI certificate   ప్రదర్శించబడిందా?/Is RBI certificate displayed on the notice Board?",
-ta:"அறிவிப்பு பலகையில் RBI certificate  காட்டப்பட்டுள்ளதா?/Is RBI certificate displayed on the notice Board?",
-kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  RBI certificate ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is RBI certificate displayed on the notice Board?"},
-
-q2:{hi:"क्या Certificate of Incorporation  Notice बोर्ड पर प्रदर्शित है?/Is Certificate of Incorporation displayed on notice board?",
-te:"నోటీసు బోర్డులో  Certificate of Incorporation   ప్రదర్శించబడిందా?/Is Certificate of Incorporation displayed on notice board?",
-ta:"அறிவிப்பு பலகையில் Certificate of Incorporation  காட்டப்பட்டுள்ளதா?/Is Certificate of Incorporation displayed on notice board?",
-kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Certificate of Incorporation ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Certificate of Incorporation displayed on notice board?"},
-
-q3:{hi:"क्या Grievance Redressal Policy  Notice बोर्ड पर प्रदर्शित है?/Is Grievance Redressal Policy on the notice Board?",
-te:"నోటీసు బోర్డులో  Grievance Redressal Policy   ప్రదర్శించబడిందా?/Is Grievance Redressal Policy on the notice Board?",
-ta:"அறிவிப்பு பலகையில் Grievance Redressal Policy  காட்டப்பட்டுள்ளதா?/Is Grievance Redressal Policy on the notice Board?",
-kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Grievance Redressal Policy ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Grievance Redressal Policy on the notice Board?"},
-
-q4:{hi:"क्या Employee Grievance Resolution Policy  Notice बोर्ड पर प्रदर्शित है?/Is Employee Grievance Resolution Policy on the notice Board?",
-te:"నోటీసు బోర్డులో  Employee Grievance Resolution Policy   ప్రదర్శించబడిందా?/Is Employee Grievance Resolution Policy on the notice Board?",
-ta:"அறிவிப்பு பலகையில் Employee Grievance Resolution Policy  காட்டப்பட்டுள்ளதா?/Is Employee Grievance Resolution Policy on the notice Board?",
-kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Employee Grievance Resolution Policy ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Employee Grievance Resolution Policy on the notice Board?"},
-
-q5:{hi:"क्या Collection code of conduct  Notice बोर्ड पर प्रदर्शित है?/Is Collection code of conduct on the notice Board?",
-te:"నోటీసు బోర్డులో  Collection code of conduct   ప్రదర్శించబడిందా?/Is Collection code of conduct on the notice Board?",
-ta:"அறிவிப்பு பலகையில் Collection code of conduct  காட்டப்பட்டுள்ளதா?/Is Collection code of conduct on the notice Board?",
-kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Collection code of conduct ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Collection code of conduct on the notice Board?"},
-
-q6:{hi:"क्या Whistle Blower Policy  Notice बोर्ड पर प्रदर्शित है?/Is Whistle Blower Policy on the notice Board?",
-te:"నోటీసు బోర్డులో  Whistle Blower Policy   ప్రదర్శించబడిందా?/Is Whistle Blower Policy on the notice Board?",
-ta:"அறிவிப்பு பலகையில் Whistle Blower Policy  காட்டப்பட்டுள்ளதா?/Is Whistle Blower Policy on the notice Board?",
-kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Whistle Blower Policy ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Whistle Blower Policy on the notice Board?"},
-
-q7:{hi:"क्या Code of conduct  Notice बोर्ड पर प्रदर्शित है?/Is Code of conduct on the notice Board?",
-te:"నోటీసు బోర్డులో  Code of conduct   ప్రదర్శించబడిందా?/Is Code of conduct on the notice Board?",
-ta:"அறிவிப்பு பலகையில் Code of conduct  காட்டப்பட்டுள்ளதா?/Is Code of conduct on the notice Board?",
-kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Code of conduct ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Code of conduct on the notice Board?"},
-
-q8:{hi:"क्या Quality Policy  Notice बोर्ड पर प्रदर्शित है?/Is Quality Policy on the notice Board?",
-te:"నోటీసు బోర్డులో  Quality Policy   ప్రదర్శించబడిందా?/Is Quality Policy on the notice Board?",
-ta:"அறிவிப்பு பலகையில் Quality Policy  காட்டப்பட்டுள்ளதா?/Is Quality Policy on the notice Board?",
-kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Quality Policy ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Quality Policy on the notice Board?"},
-
-q9:{hi:"क्या Sexual Harassment policy  Notice बोर्ड पर प्रदर्शित है?/Is Sexual Harassment policy on the notice Board?",
-te:"నోటీసు బోర్డులో  Sexual Harassment policy   ప్రదర్శించబడిందా?/Is Sexual Harassment policy on the notice Board?",
-ta:"அறிவிப்பு பலகையில் Sexual Harassment policy  காட்டப்பட்டுள்ளதா?/Is Sexual Harassment policy on the notice Board?",
-kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Sexual Harassment policy ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Sexual Harassment policy on the notice Board?"},
-
-q10:{hi:"क्या Fair Practice Code  Notice बोर्ड पर प्रदर्शित है?/Is Fair Practice Code on the notice Board?",
-te:"నోటీసు బోర్డులో  Fair Practice Code   ప్రదర్శించబడిందా?/Is Fair Practice Code on the notice Board?",
-ta:"அறிவிப்பு பலகையில் Fair Practice Code  காட்டப்பட்டுள்ளதா?/Is Fair Practice Code on the notice Board?",
-kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Fair Practice Code ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Fair Practice Code on the notice Board?"},
-
-q11:{hi:"क्या Consumer Education Literature on SMA, NPA Classification and Upgradation  Notice बोर्ड पर प्रदर्शित है?/Is Consumer Education Literature on SMA, NPA Classification and Upgradation on the notice Board?",
-te:"నోటీసు బోర్డులో  Consumer Education Literature on SMA, NPA Classification and Upgradation   ప్రదర్శించబడిందా?/Is Consumer Education Literature on SMA, NPA Classification and Upgradation on the notice Board?",
-ta:"அறிவிப்பு பலகையில் Consumer Education Literature on SMA, NPA Classification and Upgradation  காட்டப்பட்டுள்ளதா?/Is Consumer Education Literature on SMA, NPA Classification and Upgradation on the notice Board?",
-kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Consumer Education Literature on SMA, NPA Classification and Upgradation ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Consumer Education Literature on SMA, NPA Classification and Upgradation on the notice Board?"},
-
-q12:{hi:"क्या Customer Grievance Redressal Mechanism  Notice बोर्ड पर प्रदर्शित है?/Is Customer Grievance Redressal Mechanism on the notice Board?",
-te:"నోటీసు బోర్డులో  Customer Grievance Redressal Mechanism   ప్రదర్శించబడిందా?/Is Customer Grievance Redressal Mechanism on the notice Board?",
-ta:"அறிவிப்பு பலகையில் Customer Grievance Redressal Mechanism  காட்டப்பட்டுள்ளதா?/Is Customer Grievance Redressal Mechanism on the notice Board?",
-kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Customer Grievance Redressal Mechanism ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Customer Grievance Redressal Mechanism on the notice Board?"},
-
-q13:{hi:"क्या Ombudsman certificate ( 3 languages)  Notice बोर्ड पर प्रदर्शित है?/Is Ombudsman certificate ( 3 languages) on the notice Board?",
-te:"నోటీసు బోర్డులో  Ombudsman certificate ( 3 languages)   ప్రదర్శించబడిందా?/Is Ombudsman certificate ( 3 languages) on the notice Board?",
-ta:"அறிவிப்பு பலகையில் Ombudsman certificate ( 3 languages)  காட்டப்பட்டுள்ளதா?/Is Ombudsman certificate ( 3 languages) on the notice Board?",
-kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Ombudsman certificate ( 3 languages) ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Ombudsman certificate ( 3 languages) on the notice Board?"},
-
-q14:{hi:"क्या S&E certificate  Notice बोर्ड पर प्रदर्शित है?/Is S&E certificate on the notice Board?",
-te:"నోటీసు బోర్డులో  S&E certificate   ప్రదర్శించబడిందా?/Is S&E certificate on the notice Board?",
-ta:"அறிவிப்பு பலகையில் S&E certificate  காட்டப்பட்டுள்ளதா?/Is S&E certificate on the notice Board?",
-kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  S&E certificate ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is S&E certificate on the notice Board?"},
-
-q15:{hi:"क्या GSTN certificate  Notice बोर्ड पर प्रदर्शित है?/Is GSTN certificate on the notice Board?",
-te:"నోటీసు బోర్డులో  GSTN certificate   ప్రదర్శించబడిందా?/Is GSTN certificate on the notice Board?",
-ta:"அறிவிப்பு பலகையில் GSTN certificate  காட்டப்பட்டுள்ளதா?/Is GSTN certificate on the notice Board?",
-kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  GSTN certificate ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is GSTN certificate on the notice Board?"},
-
-q16:{hi:"क्या Holiday List  Notice बोर्ड पर प्रदर्शित है?/Is Holiday List on the notice Board?",
-te:"నోటీసు బోర్డులో  Holiday List   ప్రదర్శించబడిందా?/Is Holiday List on the notice Board?",
-ta:"அறிவிப்பு பலகையில் Holiday List  காட்டப்பட்டுள்ளதா?/Is Holiday List on the notice Board?",
-kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Holiday List ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Holiday List on the notice Board?"},
-
-q17:{hi:"क्या Trade License  Notice बोर्ड पर प्रदर्शित है?/Is Trade License on the notice Board?",
-te:"నోటీసు బోర్డులో  Trade License   ప్రదర్శించబడిందా?/Is Trade License on the notice Board?",
-ta:"அறிவிப்பு பலகையில் Trade License  காட்டப்பட்டுள்ளதா?/Is Trade License on the notice Board?",
-kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  Trade License ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is Trade License on the notice Board?"},
-
-q18:{hi:"क्या ISO certificate  Notice बोर्ड पर प्रदर्शित है?/Is ISO certificate on the notice Board?",
-te:"నోటీసు బోర్డులో  ISO certificate   ప్రదర్శించబడిందా?/Is ISO certificate on the notice Board?",
-ta:"அறிவிப்பு பலகையில் ISO certificate  காட்டப்பட்டுள்ளதா?/Is ISO certificate on the notice Board?",
-kn:"ಸೂಚನಾ ಫಲಕದಲ್ಲಿ  ISO certificate ಎಂದು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆಯೇ?/Is ISO certificate on the notice Board?"},
-
-// Page 2: General querries
-q19:{hi:"क्या Abstracts & Notices लगे हैं?/Abstracts & Notices?",
-te:"Abstracts & Notices ఉన్నాయా?/Abstracts & Notices?",
-ta:"Abstracts & Notices உள்ளதா?/Abstracts & Notices?",
-kn:"Abstracts & Notices ಇದೆಯೇ?/Abstracts & Notices?"},
-
-q20:{hi:"क्या Office Address Board लगा है?/Office Address Board?",
-te:"Office Address Board ఉందా?/Office Address Board?",
-ta:"Office Address Board உள்ளதா?/Office Address Board?",
-kn:"Office Address Board ಇದೆಯೇ?/Office Address Board?"},
-
-q21:{hi:"क्या First Aid Box उपलब्ध है (expiry check)?/First Aid Box (check expiry)?",
-te:"First Aid Box ఉందా (expiry check)?/First Aid Box (check expiry)?",
-ta:"First Aid Box உள்ளதா (expiry check)?/First Aid Box (check expiry)?",
-kn:"First Aid Box ಇದೆಯೇ (expiry check)?/First Aid Box (check expiry)?"},
-
-q22:{hi:"क्या ERT List उपलब्ध है?/ERT List?",
-te:"ERT List ఉందా?/ERT List?",
-ta:"ERT List உள்ளதா?/ERT List?",
-kn:"ERT List ಇದೆಯೇ?/ERT List?"},
-
-q23:{hi:"क्या Emergency contact list उपलब्ध है (Doctor/Hospital/Police/Fire/Ambulance)?/Emergency contact list?",
-te:"Emergency contact list ఉందా?/Emergency contact list?",
-ta:"Emergency contact list உள்ளதா?/Emergency contact list?",
-kn:"Emergency contact list ಇದೆಯೇ?/Emergency contact list?"},
-
-q24:{hi:"क्या Fire Exit Signages लगे हैं?/Fire Exit Signages?",
-te:"Fire Exit Signages ఉన్నాయా?/Fire Exit Signages?",
-ta:"Fire Exit Signages உள்ளதா?/Fire Exit Signages?",
-kn:"Fire Exit Signages ಇದೆಯೇ?/Fire Exit Signages?"},
-
-q25:{hi:"Branch में कितने Fire Extinguishers उपलब्ध हैं?/Number of Fire Extinguishers in branch?",
-te:"Branch లో ఎంతమంది Fire Extinguishers ఉన్నాయి?/Number of Fire Extinguishers in branch?",
-ta:"Branch-ல் எத்தனை Fire Extinguishers உள்ளன?/Number of Fire Extinguishers in branch?",
-kn:"Branch ನಲ್ಲಿ ಎಷ್ಟು Fire Extinguishers ಇವೆ?/Number of Fire Extinguishers in branch?"},
-
-q26:{hi:"क्या UPS On/Off Instructions लगी हैं?/UPS On/Off Instructions near location?",
-te:"UPS On/Off Instructions ఉన్నాయా?/UPS On/Off Instructions near location?",
-ta:"UPS On/Off Instructions உள்ளதா?/UPS On/Off Instructions near location?",
-kn:"UPS On/Off Instructions ಇದೆಯೇ?/UPS On/Off Instructions near location?"},
-
-q27:{hi:"क्या Electrical On/Off Instructions लगी हैं?/Electrical On/Off Instructions near location?",
-te:"Electrical On/Off Instructions ఉన్నాయా?/Electrical On/Off Instructions near location?",
-ta:"Electrical On/Off Instructions உள்ளதా?/Electrical On/Off Instructions near location?",
-kn:"Electrical On/Off Instructions ಇದೆಯೇ?/Electrical On/Off Instructions near location?"},
-
-// Page 3: Registers
-q28:{hi:"Customer Complaint Register के आखिरी 2 पन्नों की कम से कम 2 तस्वीरें अपलोड करें।/Upload photo of last 2 pages of  Customer Complaint Register",
-te:"Customer Complaint Register యొక్క చివరి 2 పేజీల యొక్క కనీసం 2 ఫోటోలను అప్‌లోడ్ చేయండి./Upload photo of last 2 pages of  Customer Complaint Register",
-ta:"Customer Complaint Register இன் கடைசிப் பக்கத்தின் குறைந்தபட்சம் 2 புகைப்படங்களைப் பதிவேற்றவும்./Upload photo of last 2 pages of  Customer Complaint Register",
-kn:"Customer Complaint Register ನ ಕೊನೆಯ ಪುಟದ ಕನಿಷ್ಠ 2 ಫೋಟೋಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ./Upload photo of last 2 pages of  Customer Complaint Register"},
-
-q29:{hi:"Office Opening & Closing Register के आखिरी 2 पन्नों की कम से कम 2 तस्वीरें अपलोड करें।/Upload photo of last 2 pages of  Office Opening & Closing Register",
-te:"Office Opening & Closing Register యొక్క చివరి 2 పేజీల యొక్క కనీసం 2 ఫోటోలను అప్‌లోడ్ చేయండి./Upload photo of last 2 pages of  Office Opening & Closing Register",
-ta:"Office Opening & Closing Register இன் கடைசிப் பக்கத்தின் குறைந்தபட்சம் 2 புகைப்படங்களைப் பதிவேற்றவும்./Upload photo of last 2 pages of  Office Opening & Closing Register",
-kn:"Office Opening & Closing Register ನ ಕೊನೆಯ ಪುಟದ ಕನಿಷ್ಠ 2 ಫೋಟೋಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ./Upload photo of last 2 pages of  Office Opening & Closing Register"},
-
-q30:{hi:"Visitor Register के आखिरी 2 पन्नों की कम से कम 2 तस्वीरें अपलोड करें।/Upload photo of last 2 pages of  Visitor Register",
-te:"Visitor Register యొక్క చివరి 2 పేజీల యొక్క కనీసం 2 ఫోటోలను అప్‌లోడ్ చేయండి./Upload photo of last 2 pages of  Visitor Register",
-ta:"Visitor Register இன் கடைசிப் பக்கத்தின் குறைந்தபட்சம் 2 புகைப்படங்களைப் பதிவேற்றவும்./Upload photo of last 2 pages of  Visitor Register",
-kn:"Visitor Register ನ ಕೊನೆಯ ಪುಟದ ಕನಿಷ್ಠ 2 ಫೋಟೋಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ./Upload photo of last 2 pages of  Visitor Register"},
-
-q31:{hi:"Courier inward Register के आखिरी 2 पन्नों की कम से कम 2 तस्वीरें अपलोड करें।/Upload photo of last 2 pages of  Courier inward Register",
-te:"Courier inward Register యొక్క చివరి 2 పేజీల యొక్క కనీసం 2 ఫోటోలను అప్‌లోడ్ చేయండి./Upload photo of last 2 pages of  Courier inward Register",
-ta:"Courier inward Register இன் கடைசிப் பக்கத்தின் குறைந்தபட்சம் 2 புகைப்படங்களைப் பதிவேற்றவும்./Upload photo of last 2 pages of  Courier inward Register",
-kn:"Courier inward Register ನ ಕೊನೆಯ ಪುಟದ ಕನಿಷ್ಠ 2 ಫೋಟೋಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ./Upload photo of last 2 pages of  Courier inward Register"},
-
-q32:{hi:"Courier outward Register के आखिरी 2 पन्नों की कम से कम 2 तस्वीरें अपलोड करें।/Upload photo of last 2 pages of  Courier outward Register",
-te:"Courier outward Register యొక్క చివరి 2 పేజీల యొక్క కనీసం 2 ఫోటోలను అప్‌లోడ్ చేయండి./Upload photo of last 2 pages of  Courier outward Register",
-ta:"Courier outward Register இன் கடைசிப் பக்கத்தின் குறைந்தபட்சம் 2 புகைப்படங்களைப் பதிவேற்றவும்./Upload photo of last 2 pages of  Courier outward Register",
-kn:"Courier outward Register ನ ಕೊನೆಯ ಪುಟದ ಕನಿಷ್ಠ 2 ಫೋಟೋಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ./Upload photo of last 2 pages of  Courier outward Register"},
-
-q33:{hi:"Material Inward Register के आखिरी 2 पन्नों की कम से कम 2 तस्वीरें अपलोड करें।/Upload photo of last 2 pages of  Material Inward Register",
-te:"Material Inward Register యొక్క చివరి 2 పేజీల యొక్క కనీసం 2 ఫోటోలను అప్‌లోడ్ చేయండి./Upload photo of last 2 pages of  Material Inward Register",
-ta:"Material Inward Register இன் கடைசிப் பக்கத்தின் குறைந்தபட்சம் 2 புகைப்படங்களைப் பதிவேற்றவும்./Upload photo of last 2 pages of  Material Inward Register",
-kn:"Material Inward Register ನ ಕೊನೆಯ ಪುಟದ ಕನಿಷ್ಠ 2 ಫೋಟೋಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ./Upload photo of last 2 pages of  Material Inward Register"},
-
-q34:{hi:"Material Outward Register के आखिरी 2 पन्नों की कम से कम 2 तस्वीरें अपलोड करें।/Upload photo of last 2 pages of  Material Outward Register",
-te:"Material Outward Register యొక్క చివరి 2 పేజీల యొక్క కనీసం 2 ఫోటోలను అప్‌లోడ్ చేయండి./Upload photo of last 2 pages of  Material Outward Register",
-ta:"Material Outward Register இன் கடைசிப் பக்கத்தின் குறைந்தபட்சம் 2 புகைப்படங்களைப் பதிவேற்றவும்./Upload photo of last 2 pages of  Material Outward Register",
-kn:"Material Outward Register ನ ಕೊನೆಯ ಪುಟದ ಕನಿಷ್ಠ 2 ಫೋಟೋಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ./Upload photo of last 2 pages of  Material Outward Register"},
-
-q35:{hi:"Key Register के आखिरी 2 पन्नों की कम से कम 2 तस्वीरें अपलोड करें।/Upload photo of last 2 pages of  Key Register",
-te:"Key Register యొక్క చివరి 2 పేజీల యొక్క కనీసం 2 ఫోటోలను అప్‌లోడ్ చేయండి./Upload photo of last 2 pages of  Key Register",
-ta:"Key Register இன் கடைசிப் பக்கத்தின் குறைந்தபட்சம் 2 புகைப்படங்களைப் பதிவேற்றவும்./Upload photo of last 2 pages of  Key Register",
-kn:"Key Register ನ ಕೊನೆಯ ಪುಟದ ಕನಿಷ್ಠ 2 ಫೋಟೋಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ./Upload photo of last 2 pages of  Key Register"},
-
-q36:{hi:"Stationery Register के आखिरी 2 पन्नों की कम से कम 2 तस्वीरें अपलोड करें।/Upload photo of last 2 pages of  Stationery Register",
-te:"Stationery Register యొక్క చివరి 2 పేజీల యొక్క కనీసం 2 ఫోటోలను అప్‌లోడ్ చేయండి./Upload photo of last 2 pages of  Stationery Register",
-ta:"Stationery Register இன் கடைசிப் பக்கத்தின் குறைந்தபட்சம் 2 புகைப்படங்களைப் பதிவேற்றவும்./Upload photo of last 2 pages of  Stationery Register",
-kn:"Stationery Register ನ ಕೊನೆಯ ಪುಟದ ಕನಿಷ್ಠ 2 ಫೋಟೋಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ./Upload photo of last 2 pages of  Stationery Register"},
-
-q37:{hi:"branch के अंदर washroom है?/washroom inside the branch",
-te:"branch లోపల washroom ఉంది?/is there washroom inside the branch",
-ta:"branch உள்ளே washroom உள்ளது?/is there washroom inside the branch",
-kn:"branch ಒಳಗೆ washroom ಇದೆ?/is there washroom inside the branch"},
-
-// Page 4: HR
-q38:{hi:"HR Documents के सभी pages की फोटो अपलोड करें/Upload photo of all pages of  HR Documents",
-te:"HR Documents యొక్క అన్ని పేజీల ఫోటోలను అప్‌లోడ్ చేయండి./Upload photo of all pages of  HR Documents",
-ta:"HR Documents இன் அனைத்து Pages புகைப்படங்களையும் பதிவேற்றவும்./Upload photo of all pages of  HR Documents",
-kn:"HR Documents ನ ಎಲ್ಲಾ ಪುಟಗಳ ಫೋಟೋಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ./Upload photo of all pages of  HR Documents"},
-
-
-// Page 5: Branch Info
-q39:{hi:"Branch में कितने AC हैं?/How Many AC are there in the branch?",
-te:"బ్రాంచ్ లో ఎన్ని ACలు ఉన్నాయి?/How Many AC are there in the branch?",
-ta:"கிளையில் எத்தனை ஏசிகள் உள்ளன?/How Many AC are there in the branch?",
-kn:"ಬ್ರಾಂಚ್‌ನಲ್ಲಿ ಎಷ್ಟು ಎಸಿಗಳಿವೆ?/How Many AC are there in the branch?"},
-
-q40:{hi:"बायोमेट्रिक मशीन काम कर रही है/Biometric machine working?",
-te:"బయోమెట్రిక్ మెషిన్ పనిచేస్తుందా?/Biometric machine working?",
-ta:"பயோமெట্রিক இயந்திரம் வேலை செய்கிறதா?/Biometric machine working?",
-kn:"ಬಯೋಮೆಟ್ರಿಕ್ ಯಂತ್ರ ಕೆಲಸ ಮಾಡುತ್ತಿದೆಯೇ?}/Biometric machine working?"},
-
-q41:{hi:"बायोमेट्रिक लॉक काम कर रहा है?/Biometric Lock working?",
-te:"బయోమెట్రిక్ లాక్ పనిచేస్తుందా?/Biometric Lock working?",
-ta:"பயோமெட்ட্রিক லாக் வேலை செய்கிறதா?/Biometric Lock working?",
-kn:"ಬಯೋಮೆಟ್ರಿಕ್ ಲಾಕ್ ಕೆಲಸ ಮಾಡುತ್ತಿದೆಯೇ?/Biometric Lock working?"},
-
-
-
-// Page 6: Fixed Assets Register
-q42:{hi:"सभी fixed asset code की फोटो अपलोड करें/upload photo of all fixed asset code",
-te:"అన్ని fixed asset code ఫోటోలను అప్‌లోడ్ చేయండి/upload photo of all fixed asset code",
-ta:"fixed asset code புகைப்படங்கள் அனைத்தையும் பதிவேற்று./upload photo of all fixed asset code",
-kn:"ಎಲ್ಲಾ fixed asset code ಫೋಟೋಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ/upload photo of all fixed asset code"}
-
-
-};// Your QUESTIONS object
-        const branchMap = {
-"Andhra Pradesh":["Tirupati","Vijayawada","Visakhapatnam"],
-"Telangana":["Hyderabad"],
-"Tamil Nadu":["Chennai","Coimbatore","Madurai","Salem","Tirupur","Tiruvallur"],
-"Karnataka":["Bangalore","Belgaum","Gulbarga","Hubballi","Mangalore","Mysore","Tumkur"],
-"Delhi":["Delhi"],
-"Gujarat":["Ahmedabad","Baroda","Rajkot","Surat"],
-"Maharashtra":["Aurangabad","Borivali","Kolhapur","Nagpur","Nashik","Pune","Thane"],
-"Rajasthan":["Ajmer","Jaipur","Jodhpur","Sikar","Udaipur"],
-"Uttar Pradesh":["Lucknow"],
-"West Bengal":["Kolkata"],
-"Punjab":["Jalandhar","Ludhiana"],
-"Haryana":["Panipat"],
-"Madhya Pradesh":["Bhopal","Gwalior","Indore"],
-"Odisha":["Bhubaneswar"],
-"Puducherry":["Puducherry"],
-"Jharkhand":["Jamshedpur"],
-"Chandigarh":["Chandigarh"]
-};// Your branchMap object
-        const STATE_LANG = {
-            "Andhra Pradesh":"te","Telangana":"te",
-"Tamil Nadu":"ta","Karnataka":"kn",
-"Delhi":"hi","Gujarat":"hi","Maharashtra":"hi",
-"Rajasthan":"hi","Uttar Pradesh":"hi","West Bengal":"hi",
-"Punjab":"hi","Haryana":"hi","Madhya Pradesh":"hi",
-"Odisha":"hi","Puducherry":"ta","Jharkhand":"hi","Chandigarh":"hi"
-};// Your STATE_LANG mapping
+        // ======= DATA PLACEMENT =======
+        const msgLabels = { /* PASTE msgLabels OBJECT FROM TEXT FILE HERE */ };
+        const QUESTIONS = { /* PASTE QUESTIONS OBJECT FROM TEXT FILE HERE */ };
+        const branchMap = { /* PASTE branchMap OBJECT FROM TEXT FILE HERE */ };
+        const STATE_LANG = { /* PASTE STATE_LANG OBJECT FROM TEXT FILE HERE */ };
         const trade = ["Bhubaneswar","Hyderabad","Kolkata","Puducherry","Tirupati"];
-        const iso = ["Bangalore","Chennai","Delhi","Hyderabad","Jaipur","Pune","Kolkata","Coimbatore","Ahmedabad"];
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwkH_Pi4ARwAXVyqHdEHozfM-uBcxYmmEJZKcXWL2Qbrjh4O9EMzATsx-ghAyf0PP3E/exec"; 
+        const iso = ["Bangalore","Chennai","Delhi","Hyderabad","Jaipur","Pune","Kolkata","Coimbatore","Ahmedাবাদ"];
+        const SCRIPT_URL = "YOUR_APPS_SCRIPT_URL_HERE";
 
         let currentPage = 1;
-        let submissionId = localStorage.getItem('subId') || "SUB" + Date.now();
-        localStorage.setItem('subId', submissionId);
+        let subId = localStorage.getItem('audit_id') || "SUB" + Date.now();
+        localStorage.setItem('audit_id', subId);
 
-        // Init State Dropdown
+        // Load States
         window.onload = () => {
-            const stDrop = document.getElementById('state');
-            stDrop.innerHTML = '<option value="">--Select State--</option>';
-            Object.keys(branchMap).forEach(s => stDrop.innerHTML += `<option value="${s}">${s}</option>`);
+            const st = document.getElementById('state');
+            st.innerHTML = '<option value="">--Select State--</option>';
+            Object.keys(branchMap).length > 0 ? Object.keys(branchMap).forEach(s => st.innerHTML += `<option value="${s}">${s}</option>`) : null;
         };
 
-        function initBranch() {
-            const st = document.getElementById('state').value;
+        function loadBranches() {
+            const sVal = document.getElementById('state').value;
             const bDrop = document.getElementById('branch');
             bDrop.innerHTML = '<option value="">--Select Branch--</option>';
-            if(branchMap[st]) branchMap[st].forEach(b => bDrop.innerHTML += `<option value="${b}">${b}</option>`);
+            if(branchMap[sVal]) branchMap[sVal].forEach(b => bDrop.innerHTML += `<option value="${b}">${b}</option>`);
         }
 
-        function renderQuestions() {
-            const st = document.getElementById('state').value;
-            const lang = STATE_LANG[st] || 'en';
+        function startAudit() {
+            const state = document.getElementById('state').value;
+            const lang = STATE_LANG[state] || 'en';
             const branch = document.getElementById('branch').value;
 
-            for(let p=1; p<=6; p++) {
-                const container = document.getElementById(`q-container-${p}`);
-                if(!container) continue;
-                container.innerHTML = '';
-                
+            for(let p=1; p<=6; p++){
+                const cont = document.getElementById(`q-container-${p}`);
+                if(!cont) continue;
+                cont.innerHTML = `<h3>Page ${p}</h3>`;
                 let range = getPageRange(p);
                 range.forEach(qid => {
                     if(qid === 17 && !trade.includes(branch)) return;
                     if(qid === 18 && !iso.includes(branch)) return;
-                    container.innerHTML += createHtml(qid, lang);
+                    cont.innerHTML += renderQ(qid, lang);
                 });
             }
-            updateUIStrings(lang);
+            updateButtons(lang);
         }
 
-        function createHtml(qid, lang) {
-            const q = QUESTIONS[qid] || { [lang]: "Question "+qid };
-            return `
-                <div class="q-box" id="box_q${qid}">
-                    <p><strong>Q${qid}.</strong> ${q[lang]}</p>
-                    <div class="radio-grp">
-                        <label><input type="radio" name="q${qid}" value="Yes" onclick="document.getElementById('extra_${qid}').style.display='block'"> Yes</label>
-                        <label><input type="radio" name="q${qid}" value="No" onclick="document.getElementById('extra_${qid}').style.display='none'"> No</label>
-                    </div>
-                    <div id="extra_${qid}" style="display:none;">
-                        ${(qid >=3 && qid <=10) ? `
-                            <input type="text" id="v_${qid}" placeholder="Version No">
-                            <input type="date" id="id_${qid}" title="Issue Date">
-                            <input type="date" id="ed_${qid}" title="Effective Date">
-                        ` : ''}
-                        <input type="file" id="f_${qid}" accept="image/*" capture="camera">
-                    </div>
-                </div>`;
+        function renderQ(id, lang) {
+            const qTxt = (QUESTIONS[id] && QUESTIONS[id][lang]) ? QUESTIONS[id][lang] : `Question ${id}`;
+            return `<div class="q-box" id="box_${id}">
+                <p><strong>Q${id}.</strong> ${qTxt}</p>
+                <div class="radio-grp">
+                    <label><input type="radio" name="q${id}" value="Yes" onclick="toggleExtra(${id}, true)"> Yes</label>
+                    <label><input type="radio" name="q${id}" value="No" onclick="toggleExtra(${id}, false)"> No</label>
+                </div>
+                <div id="extra_${id}" style="display:none">
+                    <input type="file" id="f_${id}" accept="image/*" capture="camera">
+                    ${(id>=3 && id<=10) ? `<input type="text" id="v_${id}" placeholder="Version">` : ''}
+                </div>
+            </div>`;
         }
+
+        function toggleExtra(id, show) { document.getElementById(`extra_${id}`).style.display = show ? 'block' : 'none'; }
 
         function getPageRange(p) {
-            const ranges = { 1:[1,18], 2:[19,27], 3:[28,37], 4:[38,38], 5:[39,41], 6:[42,42] };
-            let r = ranges[p], list = [];
-            for(let i=r[0]; i<=r[1]; i++) list.push(i);
+            const ranges = {1:[1,18], 2:[19,27], 3:[28,37], 4:[38,38], 5:[39,41], 6:[42,42]};
+            let list = [];
+            for(let i=ranges[p][0]; i<=ranges[p][1]; i++) list.push(i);
             return list;
         }
 
-        function validatePage() {
-            const lang = STATE_LANG[document.getElementById('state').value] || 'en';
-            const container = document.getElementById(`q-container-${currentPage}`);
-            const boxes = container.querySelectorAll('.q-box');
-            let valid = true;
+        async function handleFlow() {
+            const state = document.getElementById('state').value;
+            const lang = STATE_LANG[state] || 'en';
+            if(!validate()) return alert(msgLabels[lang]?.pending || "Missing fields!");
 
-            boxes.forEach(box => {
-                const qid = box.id.split('_q')[1];
-                const checked = box.querySelector(`input[name="q${qid}"]:checked`);
-                box.classList.remove('error-highlight');
-
-                if(!checked) {
-                    valid = false;
-                    box.classList.add('error-highlight');
-                } else if(checked.value === "Yes") {
-                    const file = document.getElementById(`f_${qid}`);
-                    if(file && file.files.length === 0) { valid = false; box.classList.add('error-highlight'); }
-                }
-            });
-
-            if(!valid) alert(msgLabels[lang]?.pending || "Please fill all required fields");
-            return valid;
-        }
-
-        async function handleNext() {
-            if(!validatePage()) return;
-            
-            // Show Loading
-            document.getElementById('btnNext').innerText = "Saving...";
             document.getElementById('btnNext').disabled = true;
+            document.getElementById('btnNext').innerText = "Saving...";
 
             const payload = {
-                submissionId: submissionId,
+                submissionId: subId,
                 pageNumber: currentPage,
-                state: document.getElementById('state').value,
+                state: state,
                 branch: document.getElementById('branch').value,
-                branchHead: document.getElementById('branchHead').value,
-                officeBoy: document.getElementById('officeBoy').value,
-                responses: collectPageData()
+                responses: await collectData()
             };
 
             try {
                 const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-                const result = await res.json();
-                if(result.result === "success") {
-                    if(currentPage < 6) changePage(1);
-                    else alert("Audit Completed Successfully!");
-                }
-            } catch(e) { alert("Error saving data"); }
+                if(currentPage < 6) { changePage(1); } else { alert("Submitted!"); }
+            } catch(e) { alert("Error!"); }
             
             document.getElementById('btnNext').disabled = false;
-            updateUIStrings(STATE_LANG[document.getElementById('state').value] || 'en');
+            updateButtons(lang);
         }
 
-        function collectPageData() {
+        async function collectData() {
             let data = {};
-            const container = document.getElementById(`q-container-${currentPage}`);
-            container.querySelectorAll('.q-box').forEach(box => {
-                const qid = box.id.split('_q')[1];
-                data[qid] = {
-                    val: box.querySelector(`input[name="q${qid}"]:checked`).value,
-                    version: document.getElementById(`v_${qid}`)?.value || "",
-                    issueDate: document.getElementById(`id_${qid}`)?.value || "",
-                    effectiveDate: document.getElementById(`ed_${qid}`)?.value || ""
-                    // Note: Photo upload requires Base64 conversion logic for full functionality
-                };
-            });
+            const boxes = document.getElementById(`q-container-${currentPage}`).querySelectorAll('.q-box');
+            for(let box of boxes) {
+                const id = box.id.split('_')[1];
+                const sel = box.querySelector(`input[name="q${id}"]:checked`).value;
+                const fileInput = document.getElementById(`f_${id}`);
+                let photoBase64 = "";
+                if(sel === "Yes" && fileInput.files[0]) {
+                    photoBase64 = await toBase64(fileInput.files[0]);
+                }
+                data[id] = { val: sel, photo: photoBase64, version: document.getElementById(`v_${id}`)?.value || "" };
+            }
             return data;
         }
 
-        function changePage(step) {
+        const toBase64 = file => new Promise((res, rej) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => res(reader.result);
+            reader.onerror = rej;
+        });
+
+        function validate() {
+            let ok = true;
+            document.getElementById(`q-container-${currentPage}`).querySelectorAll('.q-box').forEach(b => {
+                const id = b.id.split('_')[1];
+                if(!b.querySelector(`input[name="q${id}"]:checked`)) { ok = false; b.classList.add('error-highlight'); }
+                else b.classList.remove('error-highlight');
+            });
+            return ok;
+        }
+
+        function changePage(s) {
             document.getElementById(`page${currentPage}`).classList.remove('active');
-            currentPage += step;
+            currentPage += s;
             document.getElementById(`page${currentPage}`).classList.add('active');
-            document.getElementById('btnBack').style.visibility = currentPage > 1 ? 'visible' : 'hidden';
+            document.getElementById('btnBack').style.display = currentPage > 1 ? 'block' : 'none';
             window.scrollTo(0,0);
         }
 
-        function updateUIStrings(lang) {
-            document.getElementById('btnNext').innerText = currentPage === 6 ? (msgLabels[lang]?.success || "Submit") : (msgLabels[lang]?.next || "Next");
-            document.getElementById('btnBack').innerText = msgLabels[lang]?.back || "Back";
+        function updateButtons(lang) {
+            document.getElementById('btnNext').innerText = currentPage === 6 ? (msgLabels[lang]?.success || "Finish") : (msgLabels[lang]?.next || "Next");
         }
     </script>
 </body>
