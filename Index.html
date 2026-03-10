@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Biometric Nodal Mapping</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    
+    <style>
+        body {
+            background-color: #0d1117;
+            color: #58a6ff;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex; flex-direction: column; align-items: center;
+            margin: 0; padding: 20px;
+        }
+
+        h2 { text-transform: uppercase; letter-spacing: 2px; }
+
+        .scanner-container {
+            position: relative;
+            width: 640px; height: 480px;
+            border: 2px solid #30363d;
+            border-radius: 8px;
+            background-color: #000;
+            box-shadow: 0 0 20px rgba(88, 166, 255, 0.2);
+            overflow: hidden;
+        }
+
+        /* We hide the raw video and only show the canvas with the ML drawing on it */
+        video { display: none; } 
+        
+        canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            transform: scaleX(-1); /* Mirrors the image like a front-facing camera */
+        }
+
+        .log-panel {
+            margin-top: 20px; padding: 15px;
+            border: 1px solid #30363d; border-radius: 5px;
+            width: 610px; background: #010409;
+            height: 120px; overflow-y: auto;
+        }
+
+        .log-entry { margin: 5px 0; font-size: 14px; }
+        .success { color: #3fb950; }
+        .warning { color: #d29922; }
+    </style>
+</head>
+<body>
+
+    <h2>Live Biometric Nodal Mapping</h2>
+
+    <div class="scanner-container">
+        <video id="webcam" autoplay playsinline></video>
+        <canvas id="output_canvas"></canvas>
+    </div>
+
+    <div class="log-panel" id="statusLog">
+        <div class="log-entry">> Initializing Machine Learning models... Please wait.</div>
+    </div>
+
+    <script>
+        const videoElement = document.getElementById('webcam');
+        const canvasElement = document.getElementById('output_canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const log = document.getElementById('statusLog');
+        let isLoaded = false;
+
+        function addLog(message, type = 'normal') {
+            const spanClass = type === 'success' ? 'success' : (type === 'warning' ? 'warning' : '');
+            log.innerHTML += `<div class="log-entry ${spanClass}">> ${message}</div>`;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // Set the internal resolution of the canvas
+        canvasElement.width = 640;
+        canvasElement.height = 480;
+
+        // This function runs every time the ML model processes a new frame
+        function onResults(results) {
+            if (!isLoaded) {
+                addLog("Neural Network active. Tracking 468 nodal points.", "success");
+                isLoaded = true;
+            }
+
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            
+            // Draw the raw camera feed
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+            // If a face is found, draw the biometric data over it
+            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+                for (const landmarks of results.multiFaceLandmarks) {
+                    // Draw the topology mesh (Blue)
+                    drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION, {color: '#58a6ff', lineWidth: 0.5});
+                    // Draw the eye tracking (Green)
+                    drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_EYE, {color: '#3fb950', lineWidth: 2});
+                    drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_EYE, {color: '#3fb950', lineWidth: 2});
+                    // Draw the facial bounding outline (Yellow)
+                    drawConnectors(canvasCtx, landmarks, FACEMESH_FACE_OVAL, {color: '#d29922', lineWidth: 2});
+                }
+            }
+            canvasCtx.restore();
+        }
+
+        // Initialize the Face Mesh model
+        const faceMesh = new FaceMesh({locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+        }});
+
+        faceMesh.setOptions({
+            maxNumFaces: 1, // Only track one face for this demo
+            refineLandmarks: true, // Focus heavily on eyes and lips
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+
+        faceMesh.onResults(onResults);
+
+        // Hook up the webcam to the ML model
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await faceMesh.send({image: videoElement});
+            },
+            width: 640,
+            height: 480
+        });
+
+        camera.start().then(() => {
+            addLog("Camera connected. Loading ML weights...");
+        });
+    </script>
+
+</body>
+</html>
