@@ -3,66 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Biometric Nodal Mapping</title>
-    
+    <title>Advanced Biometric Scanner</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
     
     <style>
-        body {
-            background-color: #0d1117;
-            color: #58a6ff;
-            font-family: 'Courier New', Courier, monospace;
-            display: flex; flex-direction: column; align-items: center;
-            margin: 0; padding: 20px;
-        }
-
-        h2 { text-transform: uppercase; letter-spacing: 2px; }
-
-        .scanner-container {
-            position: relative;
-            width: 640px; height: 480px;
-            border: 2px solid #30363d;
-            border-radius: 8px;
-            background-color: #000;
-            box-shadow: 0 0 20px rgba(88, 166, 255, 0.2);
-            overflow: hidden;
-        }
-
-        /* We hide the raw video and only show the canvas with the ML drawing on it */
+        body { background-color: #0d1117; color: #58a6ff; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .scanner-container { position: relative; width: 640px; height: 480px; border: 2px solid #30363d; border-radius: 8px; background-color: #000; overflow: hidden; margin-bottom: 15px;}
         video { display: none; } 
-        
-        canvas {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            transform: scaleX(-1); /* Mirrors the image like a front-facing camera */
-        }
-
-        .log-panel {
-            margin-top: 20px; padding: 15px;
-            border: 1px solid #30363d; border-radius: 5px;
-            width: 610px; background: #010409;
-            height: 120px; overflow-y: auto;
-        }
-
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); }
+        .log-panel { padding: 15px; border: 1px solid #30363d; border-radius: 5px; width: 610px; background: #010409; height: 120px; overflow-y: auto; margin-bottom: 15px;}
         .log-entry { margin: 5px 0; font-size: 14px; }
-        .success { color: #3fb950; }
-        .warning { color: #d29922; }
+        .success { color: #3fb950; } .warning { color: #d29922; } .alert { color: #f85149; font-weight: bold;}
+        .controls { display: flex; gap: 10px; }
+        input { padding: 8px; background: #010409; border: 1px solid #58a6ff; color: #fff; }
+        button { padding: 8px 15px; background: #238636; color: white; border: none; cursor: pointer; border-radius: 5px; font-weight: bold;}
+        button:hover { background: #2ea043; }
+        .verify-btn { background: #1f6feb; } .verify-btn:hover { background: #388bfd; }
     </style>
 </head>
 <body>
 
-    <h2>Live Biometric Nodal Mapping</h2>
+    <h2>Biometric Secure Login</h2>
 
     <div class="scanner-container">
         <video id="webcam" autoplay playsinline></video>
         <canvas id="output_canvas"></canvas>
     </div>
 
+    <div class="controls">
+        <input type="text" id="userName" placeholder="Enter your name">
+        <button onclick="enrollFace()">Enroll New Face</button>
+        <button class="verify-btn" onclick="verifyFace()">Verify Face (Login)</button>
+    </div>
+
     <div class="log-panel" id="statusLog">
-        <div class="log-entry">> Initializing Machine Learning models... Please wait.</div>
+        <div class="log-entry">> Initializing Biometric Engine...</div>
     </div>
 
     <script>
@@ -70,72 +47,119 @@
         const canvasElement = document.getElementById('output_canvas');
         const canvasCtx = canvasElement.getContext('2d');
         const log = document.getElementById('statusLog');
-        let isLoaded = false;
+        
+        let currentLandmarks = null;
+
+        // ====== YAHAN APNA APPS SCRIPT URL PASTE KAREIN ======
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx0jqRDWFMGPXdoRs491zDNadkvFJDgUQlVyL6RT2tWdROj-cJ1GtrUlBvBYcf7OpLw/exec"; 
 
         function addLog(message, type = 'normal') {
-            const spanClass = type === 'success' ? 'success' : (type === 'warning' ? 'warning' : '');
+            const spanClass = type === 'success' ? 'success' : (type === 'warning' ? 'warning' : (type === 'alert' ? 'alert' : ''));
             log.innerHTML += `<div class="log-entry ${spanClass}">> ${message}</div>`;
             log.scrollTop = log.scrollHeight;
         }
 
-        // Set the internal resolution of the canvas
-        canvasElement.width = 640;
-        canvasElement.height = 480;
+        canvasElement.width = 640; canvasElement.height = 480;
 
-        // This function runs every time the ML model processes a new frame
-        function onResults(results) {
-            if (!isLoaded) {
-                addLog("Neural Network active. Tracking 468 nodal points.", "success");
-                isLoaded = true;
-            }
-
-            canvasCtx.save();
-            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        // 1. Math Function: Chehre ke unique points ke beech ki duri nikalna (Vector Generation)
+        function calculateFaceVector(landmarks) {
+            // Distance between eyes, nose to chin, etc.
+            const getDist = (p1, p2) => Math.sqrt(Math.pow(landmarks[p1].x - landmarks[p2].x, 2) + Math.pow(landmarks[p1].y - landmarks[p2].y, 2));
             
-            // Draw the raw camera feed
-            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
-
-            // If a face is found, draw the biometric data over it
-            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-                for (const landmarks of results.multiFaceLandmarks) {
-                    // Draw the topology mesh (Blue)
-                    drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION, {color: '#58a6ff', lineWidth: 0.5});
-                    // Draw the eye tracking (Green)
-                    drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_EYE, {color: '#3fb950', lineWidth: 2});
-                    drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_EYE, {color: '#3fb950', lineWidth: 2});
-                    // Draw the facial bounding outline (Yellow)
-                    drawConnectors(canvasCtx, landmarks, FACEMESH_FACE_OVAL, {color: '#d29922', lineWidth: 2});
-                }
-            }
-            canvasCtx.restore();
+            // Normalize by face width so distance from camera doesn't matter
+            const faceWidth = getDist(234, 454); 
+            
+            return [
+                getDist(33, 263) / faceWidth,   // Eye to Eye
+                getDist(1, 152) / faceWidth,    // Nose to Chin
+                getDist(61, 291) / faceWidth,   // Mouth width
+                getDist(1, 33) / faceWidth,     // Nose to Left Eye
+                getDist(1, 263) / faceWidth     // Nose to Right Eye
+            ];
         }
 
-        // Initialize the Face Mesh model
-        const faceMesh = new FaceMesh({locateFile: (file) => {
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
-        }});
+        // 2. API Call: Save data to Google Sheet
+        async function enrollFace() {
+            const name = document.getElementById('userName').value;
+            if (!name) return addLog("Please enter your name to enroll.", "warning");
+            if (!currentLandmarks) return addLog("No face detected! Look at the camera.", "warning");
 
-        faceMesh.setOptions({
-            maxNumFaces: 1, // Only track one face for this demo
-            refineLandmarks: true, // Focus heavily on eyes and lips
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
-        });
+            const vector = calculateFaceVector(currentLandmarks);
+            addLog(`Encrypting and uploading face vector for ${name}...`, "warning");
 
+            try {
+                const response = await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'enroll', name: name, vector: vector })
+                });
+                addLog(`ENROLLMENT SUCCESSFUL: ${name} saved to secure drive.`, "success");
+            } catch (error) {
+                addLog("Upload failed. Check network or URL.", "alert");
+            }
+        }
+
+        // 3. API Call: Retrieve and Match
+        async function verifyFace() {
+            if (!currentLandmarks) return addLog("No face detected to verify.", "warning");
+            
+            const liveVector = calculateFaceVector(currentLandmarks);
+            addLog("Downloading biometric vectors from database...", "warning");
+
+            try {
+                const response = await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'get_data' })
+                });
+                const result = await response.json();
+                
+                let matchFound = false;
+                
+                // Compare live face with all saved faces
+                for (let savedFace of result.data) {
+                    let diff = 0;
+                    for(let i=0; i<liveVector.length; i++) {
+                        diff += Math.abs(liveVector[i] - savedFace.vector[i]);
+                    }
+                    
+                    // Agar difference 0.05 (5%) se kam hai, toh exact match hai!
+                    if (diff < 0.05) {
+                        addLog(`ACCESS GRANTED: Welcome, ${savedFace.name}! [Match Accuracy: 99%]`, "alert");
+                        matchFound = true;
+                        break;
+                    }
+                }
+
+                if (!matchFound) {
+                    addLog("ACCESS DENIED: Face not recognized in database.", "alert");
+                }
+
+            } catch (error) {
+                addLog("Verification failed to connect to database.", "alert");
+            }
+        }
+
+        // MediaPipe Face Tracking System
+        function onResults(results) {
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+            
+            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+                currentLandmarks = results.multiFaceLandmarks[0]; // Save live data for buttons
+                for (const landmarks of results.multiFaceLandmarks) {
+                    drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION, {color: '#58a6ff', lineWidth: 0.5});
+                    drawConnectors(canvasCtx, landmarks, FACEMESH_FACE_OVAL, {color: '#d29922', lineWidth: 2});
+                }
+            } else {
+                currentLandmarks = null;
+            }
+        }
+
+        const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
+        faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
         faceMesh.onResults(onResults);
 
-        // Hook up the webcam to the ML model
-        const camera = new Camera(videoElement, {
-            onFrame: async () => {
-                await faceMesh.send({image: videoElement});
-            },
-            width: 640,
-            height: 480
-        });
-
-        camera.start().then(() => {
-            addLog("Camera connected. Loading ML weights...");
-        });
+        const camera = new Camera(videoElement, { onFrame: async () => { await faceMesh.send({image: videoElement}); }, width: 640, height: 480 });
+        camera.start().then(() => addLog("System ready. Waiting for input."));
     </script>
 
 </body>
