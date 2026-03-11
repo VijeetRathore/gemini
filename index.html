@@ -1,166 +1,390 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced Biometric Scanner</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
-    
-    <style>
-        body { background-color: #0d1117; color: #58a6ff; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .scanner-container { position: relative; width: 640px; height: 480px; border: 2px solid #30363d; border-radius: 8px; background-color: #000; overflow: hidden; margin-bottom: 15px;}
-        video { display: none; } 
-        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); }
-        .log-panel { padding: 15px; border: 1px solid #30363d; border-radius: 5px; width: 610px; background: #010409; height: 120px; overflow-y: auto; margin-bottom: 15px;}
-        .log-entry { margin: 5px 0; font-size: 14px; }
-        .success { color: #3fb950; } .warning { color: #d29922; } .alert { color: #f85149; font-weight: bold;}
-        .controls { display: flex; gap: 10px; }
-        input { padding: 8px; background: #010409; border: 1px solid #58a6ff; color: #fff; }
-        button { padding: 8px 15px; background: #238636; color: white; border: none; cursor: pointer; border-radius: 5px; font-weight: bold;}
-        button:hover { background: #2ea043; }
-        .verify-btn { background: #1f6feb; } .verify-btn:hover { background: #388bfd; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advanced Biometric Scanner - 3D Face Vector</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+
+  <style>
+    body {
+      background-color: #0d1117;
+      color: #58a6ff;
+      font-family: "Courier New", monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .scanner-container {
+      position: relative;
+      width: 640px;
+      height: 480px;
+      border: 2px solid #30363d;
+      border-radius: 8px;
+      background-color: #000;
+      overflow: hidden;
+      margin-bottom: 15px;
+    }
+
+    video {
+      display: none;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      transform: scaleX(-1);
+    }
+
+    .log-panel {
+      padding: 15px;
+      border: 1px solid #30363d;
+      border-radius: 5px;
+      width: 610px;
+      background: #010409;
+      height: 150px;
+      overflow-y: auto;
+      margin-bottom: 15px;
+    }
+
+    .log-entry {
+      margin: 5px 0;
+      font-size: 14px;
+    }
+
+    .success { color: #3fb950; }
+    .warning { color: #d29922; }
+    .alert { color: #f85149; font-weight: bold; }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    input {
+      padding: 8px;
+      background: #010409;
+      border: 1px solid #58a6ff;
+      color: #fff;
+      min-width: 220px;
+    }
+
+    button {
+      padding: 8px 15px;
+      background: #238636;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background: #2ea043;
+    }
+
+    .verify-btn {
+      background: #1f6feb;
+    }
+
+    .verify-btn:hover {
+      background: #388bfd;
+    }
+  </style>
 </head>
 <body>
 
-    <h2>Biometric Secure Login</h2>
+  <h2>Biometric Secure Login (3D Vector)</h2>
 
-    <div class="scanner-container">
-        <video id="webcam" autoplay playsinline></video>
-        <canvas id="output_canvas"></canvas>
-    </div>
+  <div class="scanner-container">
+    <video id="webcam" autoplay playsinline></video>
+    <canvas id="output_canvas"></canvas>
+  </div>
 
-    <div class="controls">
-        <input type="text" id="userName" placeholder="Enter your name">
-        <button onclick="enrollFace()">Enroll New Face</button>
-        <button class="verify-btn" onclick="verifyFace()">Verify Face (Login)</button>
-    </div>
+  <div class="controls">
+    <input type="text" id="userName" placeholder="Enter your name" />
+    <button onclick="enrollFace()">Enroll New Face</button>
+    <button class="verify-btn" onclick="verifyFace()">Verify Face (Login)</button>
+  </div>
 
-    <div class="log-panel" id="statusLog">
-        <div class="log-entry">> Initializing Biometric Engine...</div>
-    </div>
+  <div class="log-panel" id="statusLog">
+    <div class="log-entry">> Initializing 3D Biometric Engine...</div>
+  </div>
 
-    <script>
-        const videoElement = document.getElementById('webcam');
-        const canvasElement = document.getElementById('output_canvas');
-        const canvasCtx = canvasElement.getContext('2d');
-        const log = document.getElementById('statusLog');
-        
-        let currentLandmarks = null;
+  <script>
+    const videoElement = document.getElementById("webcam");
+    const canvasElement = document.getElementById("output_canvas");
+    const canvasCtx = canvasElement.getContext("2d");
+    const log = document.getElementById("statusLog");
 
-        // ====== YAHAN APNA APPS SCRIPT URL PASTE KAREIN ======
-        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx0jqRDWFMGPXdoRs491zDNadkvFJDgUQlVyL6RT2tWdROj-cJ1GtrUlBvBYcf7OpLw/exec"; 
+    let currentLandmarks = null;
 
-        function addLog(message, type = 'normal') {
-            const spanClass = type === 'success' ? 'success' : (type === 'warning' ? 'warning' : (type === 'alert' ? 'alert' : ''));
-            log.innerHTML += `<div class="log-entry ${spanClass}">> ${message}</div>`;
-            log.scrollTop = log.scrollHeight;
+    // ====== YAHAN APNA APPS SCRIPT URL PASTE KAREIN ======
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx0jqRDWFMGPXdoRs491zDNadkvFJDgUQlVyL6RT2tWdROj-cJ1GtrUlBvBYcf7OpLw/exec";
+
+    canvasElement.width = 640;
+    canvasElement.height = 480;
+
+    function addLog(message, type = "normal") {
+      const spanClass =
+        type === "success"
+          ? "success"
+          : type === "warning"
+          ? "warning"
+          : type === "alert"
+          ? "alert"
+          : "";
+
+      log.innerHTML += `<div class="log-entry ${spanClass}">> ${message}</div>`;
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function clearLog() {
+      log.innerHTML = "";
+    }
+
+    function getPoint(landmarks, index) {
+      return landmarks[index];
+    }
+
+    function dist3D(landmarks, p1, p2) {
+      const a = getPoint(landmarks, p1);
+      const b = getPoint(landmarks, p2);
+
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      const dz = a.z - b.z;
+
+      return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    function isFaceStableAndUsable(landmarks) {
+      if (!landmarks || landmarks.length < 468) return false;
+
+      const faceWidth = dist3D(landmarks, 234, 454);
+      const faceHeight = dist3D(landmarks, 10, 152);
+
+      if (faceWidth < 0.10 || faceHeight < 0.12) {
+        addLog("Face is too small. Please come closer to the camera.", "warning");
+        return false;
+      }
+
+      return true;
+    }
+
+    // 3D Vector Calculation
+    function calculateFaceVector3D(landmarks) {
+      const faceWidth = dist3D(landmarks, 234, 454);
+      if (!faceWidth || faceWidth === 0) return null;
+
+      const vector = [
+        dist3D(landmarks, 33, 263) / faceWidth,   // eye to eye
+        dist3D(landmarks, 1, 152) / faceWidth,    // nose to chin
+        dist3D(landmarks, 61, 291) / faceWidth,   // mouth width
+        dist3D(landmarks, 1, 33) / faceWidth,     // nose to left eye
+        dist3D(landmarks, 1, 263) / faceWidth,    // nose to right eye
+        dist3D(landmarks, 133, 362) / faceWidth,  // inner eye corners
+        dist3D(landmarks, 70, 300) / faceWidth,   // eyebrow outer span
+        dist3D(landmarks, 159, 145) / faceWidth,  // left eye opening
+        dist3D(landmarks, 386, 374) / faceWidth,  // right eye opening
+        dist3D(landmarks, 13, 14) / faceWidth,    // lip opening
+        dist3D(landmarks, 78, 308) / faceWidth,   // lip corner width
+        dist3D(landmarks, 168, 6) / faceWidth     // nose bridge depth-ish segment
+      ];
+
+      return vector.map(v => Number(v.toFixed(8)));
+    }
+
+    function compareVectorsAverage(v1, v2) {
+      if (!Array.isArray(v1) || !Array.isArray(v2)) return Number.POSITIVE_INFINITY;
+      if (v1.length !== v2.length) return Number.POSITIVE_INFINITY;
+
+      let totalDiff = 0;
+      for (let i = 0; i < v1.length; i++) {
+        totalDiff += Math.abs(Number(v1[i]) - Number(v2[i]));
+      }
+
+      return totalDiff / v1.length;
+    }
+
+    async function enrollFace() {
+      const name = document.getElementById("userName").value.trim();
+
+      if (!name) {
+        addLog("Please enter your name to enroll.", "warning");
+        return;
+      }
+
+      if (!currentLandmarks) {
+        addLog("No face detected! Look at the camera.", "warning");
+        return;
+      }
+
+      if (!isFaceStableAndUsable(currentLandmarks)) {
+        return;
+      }
+
+      const vector = calculateFaceVector3D(currentLandmarks);
+      if (!vector) {
+        addLog("Could not generate 3D face vector.", "alert");
+        return;
+      }
+
+      addLog(`Generating 3D biometric vector for ${name}...`, "warning");
+
+      try {
+        const response = await fetch(APPS_SCRIPT_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "text/plain;charset=utf-8"
+          },
+          body: JSON.stringify({
+            action: "enroll",
+            name: name,
+            vector: vector,
+            version: "3d-v1"
+          })
+        });
+
+        const text = await response.text();
+        addLog(`ENROLLMENT SUCCESSFUL: ${name} saved.`, "success");
+      } catch (error) {
+        console.error(error);
+        addLog("Upload failed. Check network or Apps Script URL.", "alert");
+      }
+    }
+
+    async function verifyFace() {
+      if (!currentLandmarks) {
+        addLog("No face detected to verify.", "warning");
+        return;
+      }
+
+      if (!isFaceStableAndUsable(currentLandmarks)) {
+        return;
+      }
+
+      const liveVector = calculateFaceVector3D(currentLandmarks);
+      if (!liveVector) {
+        addLog("Could not generate live 3D face vector.", "alert");
+        return;
+      }
+
+      addLog("Downloading biometric vectors from database...", "warning");
+
+      try {
+        const response = await fetch(APPS_SCRIPT_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "text/plain;charset=utf-8"
+          },
+          body: JSON.stringify({ action: "get_data" })
+        });
+
+        const result = await response.json();
+
+        if (!result || !Array.isArray(result.data)) {
+          addLog("Invalid database response.", "alert");
+          return;
         }
 
-        canvasElement.width = 640; canvasElement.height = 480;
+        let bestMatch = null;
+        let bestScore = Number.POSITIVE_INFINITY;
 
-        // 1. Math Function: Chehre ke unique points ke beech ki duri nikalna (Vector Generation)
-        function calculateFaceVector(landmarks) {
-            // Distance between eyes, nose to chin, etc.
-            const getDist = (p1, p2) => Math.sqrt(Math.pow(landmarks[p1].x - landmarks[p2].x, 2) + Math.pow(landmarks[p1].y - landmarks[p2].y, 2));
-            
-            // Normalize by face width so distance from camera doesn't matter
-            const faceWidth = getDist(234, 454); 
-            
-            return [
-                getDist(33, 263) / faceWidth,   // Eye to Eye
-                getDist(1, 152) / faceWidth,    // Nose to Chin
-                getDist(61, 291) / faceWidth,   // Mouth width
-                getDist(1, 33) / faceWidth,     // Nose to Left Eye
-                getDist(1, 263) / faceWidth     // Nose to Right Eye
-            ];
+        for (const savedFace of result.data) {
+          if (!savedFace.vector || !Array.isArray(savedFace.vector)) continue;
+
+          // optional: only compare 3D vectors if version is same
+          const score = compareVectorsAverage(liveVector, savedFace.vector);
+
+          if (score < bestScore) {
+            bestScore = score;
+            bestMatch = savedFace;
+          }
         }
 
-        // 2. API Call: Save data to Google Sheet
-        async function enrollFace() {
-            const name = document.getElementById('userName').value;
-            if (!name) return addLog("Please enter your name to enroll.", "warning");
-            if (!currentLandmarks) return addLog("No face detected! Look at the camera.", "warning");
+        // 3D vector ke liye threshold thoda test karke tune karna padega
+        // Start with 0.018 to 0.035 range and real data pe adjust karo
+        const MATCH_THRESHOLD = 0.025;
 
-            const vector = calculateFaceVector(currentLandmarks);
-            addLog(`Encrypting and uploading face vector for ${name}...`, "warning");
-
-            try {
-                const response = await fetch(APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'enroll', name: name, vector: vector })
-                });
-                addLog(`ENROLLMENT SUCCESSFUL: ${name} saved to secure drive.`, "success");
-            } catch (error) {
-                addLog("Upload failed. Check network or URL.", "alert");
-            }
+        if (bestMatch && bestScore < MATCH_THRESHOLD) {
+          const confidence = Math.max(0, Math.min(99, Math.round((1 - bestScore / MATCH_THRESHOLD) * 99)));
+          addLog(
+            `ACCESS GRANTED: Welcome, ${bestMatch.name}! [Score: ${bestScore.toFixed(6)} | Confidence: ${confidence}%]`,
+            "success"
+          );
+        } else {
+          addLog(
+            `ACCESS DENIED: No matching face found. Best score: ${bestScore.toFixed(6)}`,
+            "alert"
+          );
         }
+      } catch (error) {
+        console.error(error);
+        addLog("Verification failed to connect to database.", "alert");
+      }
+    }
 
-        // 3. API Call: Retrieve and Match
-        async function verifyFace() {
-            if (!currentLandmarks) return addLog("No face detected to verify.", "warning");
-            
-            const liveVector = calculateFaceVector(currentLandmarks);
-            addLog("Downloading biometric vectors from database...", "warning");
+    function onResults(results) {
+      canvasCtx.save();
+      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
-            try {
-                const response = await fetch(APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'get_data' })
-                });
-                const result = await response.json();
-                
-                let matchFound = false;
-                
-                // Compare live face with all saved faces
-                for (let savedFace of result.data) {
-                    let diff = 0;
-                    for(let i=0; i<liveVector.length; i++) {
-                        diff += Math.abs(liveVector[i] - savedFace.vector[i]);
-                    }
-                    
-                    // Agar difference 0.05 (5%) se kam hai, toh exact match hai!
-                    if (diff < 0.05) {
-                        addLog(`ACCESS GRANTED: Welcome, ${savedFace.name}! [Match Accuracy: 99%]`, "alert");
-                        matchFound = true;
-                        break;
-                    }
-                }
+      if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+        currentLandmarks = results.multiFaceLandmarks[0];
 
-                if (!matchFound) {
-                    addLog("ACCESS DENIED: Face not recognized in database.", "alert");
-                }
-
-            } catch (error) {
-                addLog("Verification failed to connect to database.", "alert");
-            }
+        for (const landmarks of results.multiFaceLandmarks) {
+          drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION, {
+            color: "#58a6ff",
+            lineWidth: 0.5
+          });
+          drawConnectors(canvasCtx, landmarks, FACEMESH_FACE_OVAL, {
+            color: "#d29922",
+            lineWidth: 2
+          });
         }
+      } else {
+        currentLandmarks = null;
+      }
 
-        // MediaPipe Face Tracking System
-        function onResults(results) {
-            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
-            
-            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-                currentLandmarks = results.multiFaceLandmarks[0]; // Save live data for buttons
-                for (const landmarks of results.multiFaceLandmarks) {
-                    drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION, {color: '#58a6ff', lineWidth: 0.5});
-                    drawConnectors(canvasCtx, landmarks, FACEMESH_FACE_OVAL, {color: '#d29922', lineWidth: 2});
-                }
-            } else {
-                currentLandmarks = null;
-            }
-        }
+      canvasCtx.restore();
+    }
 
-        const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-        faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-        faceMesh.onResults(onResults);
+    const faceMesh = new FaceMesh({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+    });
 
-        const camera = new Camera(videoElement, { onFrame: async () => { await faceMesh.send({image: videoElement}); }, width: 640, height: 480 });
-        camera.start().then(() => addLog("System ready. Waiting for input."));
-    </script>
+    faceMesh.setOptions({
+      maxNumFaces: 1,
+      refineLandmarks: true,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
 
+    faceMesh.onResults(onResults);
+
+    const camera = new Camera(videoElement, {
+      onFrame: async () => {
+        await faceMesh.send({ image: videoElement });
+      },
+      width: 640,
+      height: 480
+    });
+
+    camera.start().then(() => {
+      addLog("System ready. Waiting for input.");
+      addLog("3D landmark mode enabled.", "success");
+    });
+  </script>
 </body>
 </html>
